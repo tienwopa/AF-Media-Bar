@@ -18,8 +18,8 @@
         SnapsToDevicePixels="True"
         Visibility="Collapsed">
 
-    <Grid Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Center">
-        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+    <Grid Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Stretch">
+        <StackPanel x:Name="ContentStack" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
             
             <!-- Dòng 1 trên Màn hình 2 -->
             <TextBlock x:Name="PrimaryLineText"
@@ -32,7 +32,7 @@
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="500">
                 <TextBlock.Effect>
-                    <DropShadowEffect Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.6" />
+                    <DropShadowEffect x:Name="PrimaryShadow" Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.6" />
                 </TextBlock.Effect>
             </TextBlock>
 
@@ -48,7 +48,7 @@
                        Margin="0,1,0,0"
                        Visibility="Collapsed">
                 <TextBlock.Effect>
-                    <DropShadowEffect Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
+                    <DropShadowEffect x:Name="SecondaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
                 </TextBlock.Effect>
             </TextBlock>
         </StackPanel>

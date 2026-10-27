@@ -23,6 +23,21 @@ public enum LyricElementPlacement
 }
 
 /// <summary>
+/// Căn lề hiển thị trên Màn hình thứ 2.
+/// </summary>
+public enum SecondaryTaskbarAlignment
+{
+    /// <summary>Căn lề trái.</summary>
+    Left = 0,
+
+    /// <summary>Căn lề giữa.</summary>
+    Center = 1,
+
+    /// <summary>Căn lề phải.</summary>
+    Right = 2
+}
+
+/// <summary>
 /// Cấu hình tùy biến dành riêng cho tính năng Song ngữ & Dual Taskbar Lyrics.
 /// </summary>
 public sealed class CustomSettings
@@ -42,13 +57,19 @@ public sealed class CustomSettings
     /// <summary>Vị trí hiển thị của Pinyin / Phiên âm.</summary>
     public LyricElementPlacement RomanizationPlacement { get; set; } = LyricElementPlacement.SecondaryScreen;
 
+    /// <summary>Căn lề vị trí hiển thị trên Màn hình thứ 2.</summary>
+    public SecondaryTaskbarAlignment SecondaryAlignment { get; set; } = SecondaryTaskbarAlignment.Center;
+
+    /// <summary>Tự động điều chỉnh màu sắc chữ dựa vào màu nền Taskbar (Light/Dark mode).</summary>
+    public bool AutoAdaptTaskbarColor { get; set; } = true;
+
     /// <summary>Tự động ẩn bản dịch khi lời bài hát gốc đã là Tiếng Việt.</summary>
     public bool AutoSkipVietnamese { get; set; } = true;
 
-    /// <summary>Màu sắc chữ của Lời dịch Tiếng Việt (mã HEX, ví dụ: #FFFFFF).</summary>
+    /// <summary>Màu sắc chữ của Lời dịch Tiếng Việt (mã HEX, ví dụ: #FFFFFF hoặc #18181B).</summary>
     public string TranslationColor { get; set; } = "#FFFFFF";
 
-    /// <summary>Màu sắc chữ của Pinyin / Phiên âm (mã HEX, ví dụ: #FFD54F).</summary>
+    /// <summary>Màu sắc chữ của Pinyin / Phiên âm (mã HEX, ví dụ: #FFD54F hoặc #18181B).</summary>
     public string RomanizationColor { get; set; } = "#FFD54F";
 
     /// <summary>Cỡ chữ hiển thị (DIP).</summary>

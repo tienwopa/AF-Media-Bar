@@ -4,6 +4,7 @@ using System.Windows.Media;
 using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
+using AFMediaBar.Custom.Utils;
 
 namespace AFMediaBar.Custom.DualOverlay;
 
@@ -27,30 +28,112 @@ public partial class DualTaskbarPrimaryWindow : Window
 
         Loaded += (_, _) =>
         {
-            ApplyColors();
+            ApplyAppearance();
             EnsureDockedAndPositioned();
         };
 
-        _settingsManager.SettingsChanged += _ => Dispatcher.Invoke(ApplyColors);
+        _settingsManager.SettingsChanged += _ => Dispatcher.Invoke(() => ApplyAppearance());
+        TaskbarThemeHelper.TaskbarThemeChanged += () => Dispatcher.Invoke(() => ApplyAppearance());
     }
 
-    public void ApplyColors()
+    public void ApplyAppearance(bool isPrimaryPinyin = false)
     {
         try
         {
             var settings = _settingsManager.Current;
-            var bc = new BrushConverter();
+            ResolveTextBrushes(isPrimaryPinyin, out var pb, out var sb);
+            PrimaryLineText.Foreground = pb;
+            SecondaryLineText.Foreground = sb;
 
-            if (bc.ConvertFromString(settings.TranslationColor) is Brush tb)
-            {
-                PrimaryLineText.Foreground = tb;
-            }
-            if (bc.ConvertFromString(settings.RomanizationColor) is Brush rb)
-            {
-                SecondaryLineText.Foreground = rb;
-            }
+            double baseSize = settings.FontSize > 0 ? settings.FontSize : 11.5;
+            PrimaryLineText.FontSize = baseSize;
+            SecondaryLineText.FontSize = Math.Max(9.0, baseSize - 1.5);
         }
         catch { }
+    }
+
+    private void ResolveTextBrushes(bool isPrimaryPinyin, out Brush primaryBrush, out Brush secondaryBrush)
+    {
+        var settings = _settingsManager.Current;
+        var bc = new BrushConverter();
+
+        string transColor = settings.TranslationColor;
+        string pinyinColor = settings.RomanizationColor;
+
+        if (settings.AutoAdaptTaskbarColor)
+        {
+            bool isLight = TaskbarThemeHelper.IsTaskbarLight();
+            if (isLight)
+            {
+                // Taskbar màu sáng -> Chữ tối để tương phản
+                transColor = "#18181B";
+                pinyinColor = "#374151";
+
+                if (PrimaryShadow != null)
+                {
+                    PrimaryShadow.Color = Colors.White;
+                    PrimaryShadow.Opacity = 0.4;
+                }
+                if (SecondaryShadow != null)
+                {
+                    SecondaryShadow.Color = Colors.White;
+                    SecondaryShadow.Opacity = 0.3;
+                }
+            }
+            else
+            {
+                // Taskbar màu tối -> Giữ màu sáng
+                if (transColor.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
+                    transColor.Equals("#18181B", StringComparison.OrdinalIgnoreCase))
+                {
+                    transColor = "#FFFFFF";
+                }
+                if (pinyinColor.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
+                    pinyinColor.Equals("#18181B", StringComparison.OrdinalIgnoreCase))
+                {
+                    pinyinColor = "#FFD54F";
+                }
+
+                if (PrimaryShadow != null)
+                {
+                    PrimaryShadow.Color = Colors.Black;
+                    PrimaryShadow.Opacity = 0.6;
+                }
+                if (SecondaryShadow != null)
+                {
+                    SecondaryShadow.Color = Colors.Black;
+                    SecondaryShadow.Opacity = 0.5;
+                }
+            }
+        }
+        else
+        {
+            // Chế độ màu tùy chọn thủ công
+            bool isTransBlack = transColor.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
+                                transColor.Equals("#18181B", StringComparison.OrdinalIgnoreCase);
+            if (isTransBlack)
+            {
+                if (PrimaryShadow != null)
+                {
+                    PrimaryShadow.Color = Colors.White;
+                    PrimaryShadow.Opacity = 0.3;
+                }
+            }
+            else
+            {
+                if (PrimaryShadow != null)
+                {
+                    PrimaryShadow.Color = Colors.Black;
+                    PrimaryShadow.Opacity = 0.6;
+                }
+            }
+        }
+
+        string pColor = isPrimaryPinyin ? pinyinColor : transColor;
+        string sColor = isPrimaryPinyin ? transColor : pinyinColor;
+
+        primaryBrush = bc.ConvertFromString(pColor) as Brush ?? Brushes.White;
+        secondaryBrush = bc.ConvertFromString(sColor) as Brush ?? Brushes.LightGray;
     }
 
     /// <summary>
@@ -66,21 +149,7 @@ public partial class DualTaskbarPrimaryWindow : Window
                 return;
             }
 
-            var settings = _settingsManager.Current;
-            var bc = new BrushConverter();
-
-            // Áp dụng đúng màu cho dòng 1 và dòng 2
-            if (isPrimaryPinyin)
-            {
-                if (bc.ConvertFromString(settings.RomanizationColor) is Brush rb) PrimaryLineText.Foreground = rb;
-                if (bc.ConvertFromString(settings.TranslationColor) is Brush tb) SecondaryLineText.Foreground = tb;
-            }
-            else
-            {
-                if (bc.ConvertFromString(settings.TranslationColor) is Brush tb) PrimaryLineText.Foreground = tb;
-                if (bc.ConvertFromString(settings.RomanizationColor) is Brush rb) SecondaryLineText.Foreground = rb;
-            }
-
+            ApplyAppearance(isPrimaryPinyin);
             PrimaryLineText.Text = primaryText;
 
             if (!string.IsNullOrWhiteSpace(secondaryText))
@@ -135,7 +204,7 @@ public partial class DualTaskbarPrimaryWindow : Window
                     trayWidth = Math.Max(160, trayRect.Right - trayRect.Left);
                 }
 
-                int targetWidth = 340;
+                int targetWidth = 360;
                 int targetHeight = Math.Max(36, taskbarHeight);
                 int targetX = Math.Max(10, taskbarWidth - trayWidth - targetWidth - 20);
                 int targetY = (taskbarHeight - targetHeight) / 2;

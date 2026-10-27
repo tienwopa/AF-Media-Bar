@@ -31,7 +31,7 @@
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="320">
                 <TextBlock.Effect>
-                    <DropShadowEffect Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.6" />
+                    <DropShadowEffect x:Name="PrimaryShadow" Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.6" />
                 </TextBlock.Effect>
             </TextBlock>
 
@@ -47,7 +47,7 @@
                        Margin="0,1,0,0"
                        Visibility="Collapsed">
                 <TextBlock.Effect>
-                    <DropShadowEffect Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
+                    <DropShadowEffect x:Name="SecondaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
                 </TextBlock.Effect>
             </TextBlock>
         </StackPanel>
