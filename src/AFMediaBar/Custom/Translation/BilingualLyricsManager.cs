@@ -9,6 +9,7 @@ namespace AFMediaBar.Custom.Translation;
 /// - Tự động sinh Pinyin offline 100% trong 0ms.
 /// - Nhận diện bài hát Tiếng Việt để tránh dịch thừa.
 /// - Cơ chế Fast-Track câu đầu tiên để loại bỏ hoàn toàn độ trễ khi chuyển bài.
+/// - Bộ nhớ đệm giữ toàn vẹn Pinyin và Lời dịch, không bị ghi đè.
 /// </summary>
 public sealed class BilingualLyricsManager
 {
@@ -18,6 +19,7 @@ public sealed class BilingualLyricsManager
 
     private readonly ITranslationService _translationService;
     private readonly CustomSettingsManager _settingsManager;
+    private readonly Dictionary<string, (LyricDocument doc, bool isVietnamese)> _documentCache = new(StringComparer.Ordinal);
     private CancellationTokenSource? _activeTranslationCts;
     private string _lastProcessedTrack = string.Empty;
 
@@ -57,6 +59,14 @@ public sealed class BilingualLyricsManager
             return;
         }
 
+        // Tái sử dụng ngay lập tức nếu bài hát này đã được làm giàu
+        if (_documentCache.TryGetValue(trackKey, out var cached))
+        {
+            _lastProcessedTrack = trackKey;
+            BilingualLyricsReady?.Invoke(cached.doc, cached.isVietnamese);
+            return;
+        }
+
         if (string.Equals(_lastProcessedTrack, trackKey, StringComparison.Ordinal))
         {
             return;
@@ -90,9 +100,11 @@ public sealed class BilingualLyricsManager
 
         // Kiem tra tieng Viet
         bool isVietnamese = IsVietnameseContent(document.Lines);
+        _documentCache[trackKey] = (immediateDoc, isVietnamese);
+
         if (isVietnamese && _settingsManager.Current.AutoSkipVietnamese)
         {
-            // Pinyin van co the hien neu can, nhung dich thi bo qua
+            // Pinyin vẫn có thể hiện nếu cần, nhưng dịch thì bỏ qua
             BilingualLyricsReady?.Invoke(immediateDoc, true);
             return;
         }
@@ -126,7 +138,9 @@ public sealed class BilingualLyricsManager
                             Romanization = preparedLines[0].Romanization,
                             IsBackground = preparedLines[0].IsBackground
                         };
-                        BilingualLyricsReady?.Invoke(new LyricDocument(preparedLines, document.SyncType, document.SourceFormat), false);
+                        var partialDoc = new LyricDocument(preparedLines, document.SyncType, document.SourceFormat);
+                        _documentCache[trackKey] = (partialDoc, false);
+                        BilingualLyricsReady?.Invoke(partialDoc, false);
                     }
                 }
 
@@ -154,6 +168,7 @@ public sealed class BilingualLyricsManager
                 }
 
                 var fullDoc = new LyricDocument(fullyEnrichedLines, document.SyncType, document.SourceFormat);
+                _documentCache[trackKey] = (fullDoc, false);
                 BilingualLyricsReady?.Invoke(fullDoc, false);
             }
             catch (OperationCanceledException) { }

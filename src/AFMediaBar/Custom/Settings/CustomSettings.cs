@@ -72,6 +72,9 @@ public sealed class CustomSettings
     /// <summary>Màu sắc chữ của Pinyin / Phiên âm (mã HEX, ví dụ: #FFD54F hoặc #18181B).</summary>
     public string RomanizationColor { get; set; } = "#FFD54F";
 
+    /// <summary>Bật/tắt hiệu ứng chạy chữ Karaoke (Karaoke Wipe Highlight) theo tiến độ bài hát.</summary>
+    public bool EnableKaraokeHighlight { get; set; } = true;
+
     /// <summary>Cỡ chữ hiển thị (DIP).</summary>
     public double FontSize { get; set; } = 11.5;
 

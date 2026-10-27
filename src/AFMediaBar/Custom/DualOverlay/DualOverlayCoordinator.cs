@@ -1,4 +1,5 @@
 using System.Windows.Threading;
+using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
@@ -8,10 +9,14 @@ namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
 /// Điều phối logic hiển thị đa dạng vị trí cho Lời dịch và Pinyin:
-/// Cho phép linh hoạt cấu hình độc lập vị trí trên Taskbar chính hoặc Màn hình thứ 2.
+/// - Tính toán tiến độ Karaoke (chạy chữ) siêu mượt 25 FPS (40ms).
+/// - Tự động phát hiện màn hình thứ 2 và gộp an toàn về Taskbar chính nếu chỉ có 1 màn hình.
+/// - Đồng bộ bộ nhớ đệm giữ nguyên Pinyin không bị biến mất.
 /// </summary>
 public sealed class DualOverlayCoordinator : IDisposable
 {
+    private const int SM_CMONITORS = 80;
+
     private readonly MediaSessionService _mediaSessionService;
     private readonly BilingualLyricsManager _bilingualLyricsManager;
     private readonly DualTaskbarPrimaryWindow _primaryWindow;
@@ -35,9 +40,10 @@ public sealed class DualOverlayCoordinator : IDisposable
         _secondaryWindow = secondaryWindow;
         _settingsManager = settingsManager;
 
+        // Chu kỳ 40ms (~25 FPS) để hiệu ứng Karaoke chạy chữ mượt mà nhất
         _syncTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
-            Interval = TimeSpan.FromMilliseconds(100)
+            Interval = TimeSpan.FromMilliseconds(40)
         };
         _syncTimer.Tick += SyncTimer_Tick;
 
@@ -133,17 +139,93 @@ public sealed class DualOverlayCoordinator : IDisposable
             pinyin = PinyinGeneratorService.ToPinyin(matchedLine.Text);
         }
 
-        DispatchContent(translation, pinyin, settings);
+        // 1. Tính toán tiến độ Karaoke (chạy chữ) cho câu hát hiện tại
+        double progress = CalculateKaraokeProgress(matchedLine, currentSeconds);
+
+        // 2. Điều phối nội dung tới Taskbar chính hoặc Màn hình 2
+        DispatchContent(translation, pinyin, progress, settings);
     }
 
-    private void DispatchContent(string? translation, string? pinyin, CustomSettings settings)
+    /// <summary>
+    /// Tính toán tiến độ quét Karaoke (từ 0.0 đến 1.0) dựa trên âm tiết (Words) hoặc thời lượng câu.
+    /// </summary>
+    private static double CalculateKaraokeProgress(LyricLine line, double currentSeconds)
     {
-        // 1. Phân bổ cho Primary Taskbar Window
-        bool showTransOnPrimary = settings.TranslationPlacement == LyricElementPlacement.PrimaryTaskbar ||
-                                  settings.TranslationPlacement == LyricElementPlacement.BothScreens;
+        if (currentSeconds <= line.Start)
+        {
+            return 0.0;
+        }
+        if (currentSeconds >= line.End)
+        {
+            return 1.0;
+        }
 
-        bool showPinyinOnPrimary = settings.RomanizationPlacement == LyricElementPlacement.PrimaryTaskbar ||
-                                   settings.RomanizationPlacement == LyricElementPlacement.BothScreens;
+        // Nếu bài hát có dữ liệu từng từ/âm tiết (SyllableSynced / QRC / YRC)
+        if (line.Words != null && line.Words.Count > 0)
+        {
+            var words = line.Words;
+            int n = words.Count;
+
+            if (currentSeconds <= words[0].Start)
+            {
+                return 0.0;
+            }
+            if (currentSeconds >= words[^1].End)
+            {
+                return 1.0;
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                var w = words[i];
+                if (currentSeconds >= w.Start && currentSeconds < w.End)
+                {
+                    double wDur = Math.Max(0.01, w.End - w.Start);
+                    double wFrac = Math.Clamp((currentSeconds - w.Start) / wDur, 0.0, 1.0);
+                    return (i + wFrac) / n;
+                }
+                if (currentSeconds >= w.End)
+                {
+                    if (i == n - 1 || currentSeconds < words[i + 1].Start)
+                    {
+                        return (i + 1.0) / n;
+                    }
+                }
+            }
+        }
+
+        // Dự phòng: Nội suy mượt theo tỷ lệ thời lượng dòng hát (LineSynced)
+        double lineDuration = Math.Max(0.5, line.End - line.Start);
+        return Math.Clamp((currentSeconds - line.Start) / lineDuration, 0.0, 1.0);
+    }
+
+    private void DispatchContent(string? translation, string? pinyin, double progress, CustomSettings settings)
+    {
+        // Kiểm tra xem máy tính có màn hình thứ 2 hay không
+        bool hasSecondaryScreen = NativeMethods.GetSystemMetrics(SM_CMONITORS) > 1;
+
+        var transPlacement = settings.TranslationPlacement;
+        var pinyinPlacement = settings.RomanizationPlacement;
+
+        // Nếu KHÔNG có màn hình thứ 2, tự động gộp các thành phần về Taskbar chính
+        if (!hasSecondaryScreen)
+        {
+            if (transPlacement == LyricElementPlacement.SecondaryScreen)
+            {
+                transPlacement = LyricElementPlacement.PrimaryTaskbar;
+            }
+            if (pinyinPlacement == LyricElementPlacement.SecondaryScreen)
+            {
+                pinyinPlacement = LyricElementPlacement.PrimaryTaskbar;
+            }
+        }
+
+        // 1. Phân bổ cho Primary Taskbar Window
+        bool showTransOnPrimary = transPlacement == LyricElementPlacement.PrimaryTaskbar ||
+                                  transPlacement == LyricElementPlacement.BothScreens;
+
+        bool showPinyinOnPrimary = pinyinPlacement == LyricElementPlacement.PrimaryTaskbar ||
+                                   pinyinPlacement == LyricElementPlacement.BothScreens;
 
         string? primaryLine1 = null;
         string? primaryLine2 = null;
@@ -163,39 +245,46 @@ public sealed class DualOverlayCoordinator : IDisposable
 
         if (!string.IsNullOrWhiteSpace(primaryLine1))
         {
-            _primaryWindow.UpdateContent(primaryLine1, primaryLine2, isPrimaryPinyin: (primaryLine1 == pinyin));
+            _primaryWindow.UpdateContent(primaryLine1, primaryLine2, isPrimaryPinyin: (primaryLine1 == pinyin), progress: progress);
         }
         else
         {
             _primaryWindow.HideContent();
         }
 
-        // 2. Phân bổ cho Secondary Screen Window
-        bool showTransOnSec = settings.TranslationPlacement == LyricElementPlacement.SecondaryScreen ||
-                              settings.TranslationPlacement == LyricElementPlacement.BothScreens;
-
-        bool showPinyinOnSec = settings.RomanizationPlacement == LyricElementPlacement.SecondaryScreen ||
-                               settings.RomanizationPlacement == LyricElementPlacement.BothScreens;
-
-        string? secLine1 = null;
-        string? secLine2 = null;
-
-        if (showTransOnSec && !string.IsNullOrWhiteSpace(translation))
+        // 2. Phân bổ cho Secondary Screen Window (nếu có màn hình 2)
+        if (hasSecondaryScreen)
         {
-            secLine1 = translation;
-            if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
+            bool showTransOnSec = transPlacement == LyricElementPlacement.SecondaryScreen ||
+                                  transPlacement == LyricElementPlacement.BothScreens;
+
+            bool showPinyinOnSec = pinyinPlacement == LyricElementPlacement.SecondaryScreen ||
+                                   pinyinPlacement == LyricElementPlacement.BothScreens;
+
+            string? secLine1 = null;
+            string? secLine2 = null;
+
+            if (showTransOnSec && !string.IsNullOrWhiteSpace(translation))
             {
-                secLine2 = pinyin;
+                secLine1 = translation;
+                if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
+                {
+                    secLine2 = pinyin;
+                }
             }
-        }
-        else if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
-        {
-            secLine1 = pinyin;
-        }
+            else if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
+            {
+                secLine1 = pinyin;
+            }
 
-        if (!string.IsNullOrWhiteSpace(secLine1))
-        {
-            _secondaryWindow.UpdateContent(secLine1, secLine2, isPrimaryPinyin: (secLine1 == pinyin));
+            if (!string.IsNullOrWhiteSpace(secLine1))
+            {
+                _secondaryWindow.UpdateContent(secLine1, secLine2, isPrimaryPinyin: (secLine1 == pinyin), progress: progress);
+            }
+            else
+            {
+                _secondaryWindow.HideContent();
+            }
         }
         else
         {

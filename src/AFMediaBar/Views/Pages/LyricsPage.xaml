@@ -1,4 +1,4 @@
-<Page
+﻿<Page
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:components="clr-namespace:AFMediaBar.Components"
@@ -435,7 +435,16 @@
                                              Click="CustomEnableDualTaskbarSwitch_Click" />
                         </components:SettingsRow>
 
-                        <!-- 3. Tự động điều chỉnh màu theo nền Taskbar -->
+                                                <!-- 3. Hiệu ứng chạy chữ Karaoke -->
+                        <components:SettingsRow
+                            Description="Hiệu ứng chạy màu chữ Karaoke theo giai điệu bài hát cho lời dịch và Pinyin"
+                            Icon="{ui:SymbolIcon MusicNote224}"
+                            Title="Chạy chữ Karaoke (Karaoke Highlight)">
+                            <ui:ToggleSwitch x:Name="CustomEnableKaraokeSwitch"
+                                             Click="CustomEnableKaraokeSwitch_Click" />
+                        </components:SettingsRow>
+
+                        <!-- 4. Tự động điều chỉnh màu theo nền Taskbar -->
                         <components:SettingsRow
                             Description="Tự động dùng màu tối khi thanh Taskbar sáng và màu sáng khi thanh Taskbar tối"
                             Icon="{ui:SymbolIcon DarkTheme24}"

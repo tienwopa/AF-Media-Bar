@@ -12,7 +12,7 @@ namespace AFMediaBar.Custom.DualOverlay;
 /// <summary>
 /// Cửa sổ hiển thị dành riêng cho Màn hình thứ 2.
 /// Tự động tìm màn hình phụ và dock vào Shell_SecondaryTrayWnd hoặc neo vào đáy màn hình 2.
-/// Hỗ trợ căn lề Trái, Giữa, Phải và tự điều chỉnh màu sắc theo Taskbar.
+/// Hỗ trợ căn lề Trái, Giữa, Phải, chạy chữ Karaoke và tự co dãn kích thước chống tràn chữ.
 /// </summary>
 public partial class DualTaskbarSecondaryWindow : Window
 {
@@ -20,6 +20,11 @@ public partial class DualTaskbarSecondaryWindow : Window
     private readonly CustomSettingsManager _settingsManager;
     private bool _isDocked;
     private IntPtr _lastSecondaryTaskbarHwnd = IntPtr.Zero;
+
+    private string _currentPrimaryText = string.Empty;
+    private string? _currentSecondaryText;
+    private bool _currentIsPrimaryPinyin;
+    private double _currentProgress = 1.0;
 
     public DualTaskbarSecondaryWindow(
         ITaskbarDockService dockService,
@@ -44,54 +49,35 @@ public partial class DualTaskbarSecondaryWindow : Window
         TaskbarThemeHelper.TaskbarThemeChanged += () => Dispatcher.Invoke(() => ApplyAppearance());
     }
 
-    public void ApplyAppearance(bool isPrimaryPinyin = false)
+    public void ApplyAppearance()
     {
         try
         {
-            var settings = _settingsManager.Current;
-            ResolveTextBrushes(isPrimaryPinyin, out var pb, out var sb);
-            PrimaryLineText.Foreground = pb;
-            SecondaryLineText.Foreground = sb;
-
-            double baseSize = settings.FontSize > 0 ? settings.FontSize : 11.5;
-            PrimaryLineText.FontSize = baseSize;
-            SecondaryLineText.FontSize = Math.Max(9.0, baseSize - 1.5);
-
-            var textAlignment = settings.SecondaryAlignment switch
+            if (string.IsNullOrWhiteSpace(_currentPrimaryText))
             {
-                SecondaryTaskbarAlignment.Left => TextAlignment.Left,
-                SecondaryTaskbarAlignment.Right => TextAlignment.Right,
-                _ => TextAlignment.Center
-            };
-            var horizAlignment = settings.SecondaryAlignment switch
-            {
-                SecondaryTaskbarAlignment.Left => HorizontalAlignment.Left,
-                SecondaryTaskbarAlignment.Right => HorizontalAlignment.Right,
-                _ => HorizontalAlignment.Center
-            };
+                return;
+            }
 
-            PrimaryLineText.TextAlignment = textAlignment;
-            SecondaryLineText.TextAlignment = textAlignment;
-            ContentStack.HorizontalAlignment = horizAlignment;
+            UpdateContent(_currentPrimaryText, _currentSecondaryText, _currentIsPrimaryPinyin, _currentProgress);
         }
         catch { }
     }
 
-    private void ResolveTextBrushes(bool isPrimaryPinyin, out Brush primaryBrush, out Brush secondaryBrush)
+    private void ResolveColors(bool isPrimaryPinyin, out Color primaryColor, out Color secondaryColor, out bool isLight)
     {
         var settings = _settingsManager.Current;
-        var bc = new BrushConverter();
+        isLight = false;
 
-        string transColor = settings.TranslationColor;
-        string pinyinColor = settings.RomanizationColor;
+        string transHex = settings.TranslationColor;
+        string pinyinHex = settings.RomanizationColor;
 
         if (settings.AutoAdaptTaskbarColor)
         {
-            bool isLight = TaskbarThemeHelper.IsTaskbarLight();
+            isLight = TaskbarThemeHelper.IsTaskbarLight();
             if (isLight)
             {
-                transColor = "#18181B";
-                pinyinColor = "#374151";
+                transHex = "#18181B";
+                pinyinHex = "#374151";
 
                 if (PrimaryShadow != null)
                 {
@@ -106,15 +92,15 @@ public partial class DualTaskbarSecondaryWindow : Window
             }
             else
             {
-                if (transColor.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
-                    transColor.Equals("#18181B", StringComparison.OrdinalIgnoreCase))
+                if (transHex.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
+                    transHex.Equals("#18181B", StringComparison.OrdinalIgnoreCase))
                 {
-                    transColor = "#FFFFFF";
+                    transHex = "#FFFFFF";
                 }
-                if (pinyinColor.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
-                    pinyinColor.Equals("#18181B", StringComparison.OrdinalIgnoreCase))
+                if (pinyinHex.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
+                    pinyinHex.Equals("#18181B", StringComparison.OrdinalIgnoreCase))
                 {
-                    pinyinColor = "#FFD54F";
+                    pinyinHex = "#FFD54F";
                 }
 
                 if (PrimaryShadow != null)
@@ -131,8 +117,8 @@ public partial class DualTaskbarSecondaryWindow : Window
         }
         else
         {
-            bool isTransBlack = transColor.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
-                                transColor.Equals("#18181B", StringComparison.OrdinalIgnoreCase);
+            bool isTransBlack = transHex.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
+                                transHex.Equals("#18181B", StringComparison.OrdinalIgnoreCase);
             if (isTransBlack)
             {
                 if (PrimaryShadow != null)
@@ -151,14 +137,24 @@ public partial class DualTaskbarSecondaryWindow : Window
             }
         }
 
-        string pColor = isPrimaryPinyin ? pinyinColor : transColor;
-        string sColor = isPrimaryPinyin ? transColor : pinyinColor;
+        string pColorHex = isPrimaryPinyin ? pinyinHex : transHex;
+        string sColorHex = isPrimaryPinyin ? transHex : pinyinHex;
 
-        primaryBrush = bc.ConvertFromString(pColor) as Brush ?? Brushes.White;
-        secondaryBrush = bc.ConvertFromString(sColor) as Brush ?? Brushes.LightGray;
+        primaryColor = ParseColor(pColorHex, Colors.White);
+        secondaryColor = ParseColor(sColorHex, Color.FromRgb(255, 213, 79));
     }
 
-    public void UpdateContent(string primaryText, string? secondaryText = null, bool isPrimaryPinyin = false)
+    private static Color ParseColor(string hex, Color fallback)
+    {
+        try
+        {
+            if (ColorConverter.ConvertFromString(hex) is Color c) return c;
+        }
+        catch { }
+        return fallback;
+    }
+
+    public void UpdateContent(string primaryText, string? secondaryText = null, bool isPrimaryPinyin = false, double progress = 1.0)
     {
         Dispatcher.Invoke(() =>
         {
@@ -168,19 +164,61 @@ public partial class DualTaskbarSecondaryWindow : Window
                 return;
             }
 
-            ApplyAppearance(isPrimaryPinyin);
-            PrimaryLineText.Text = primaryText;
+            _currentPrimaryText = primaryText;
+            _currentSecondaryText = secondaryText;
+            _currentIsPrimaryPinyin = isPrimaryPinyin;
+            _currentProgress = progress;
 
-            if (!string.IsNullOrWhiteSpace(secondaryText))
+            var settings = _settingsManager.Current;
+            ResolveColors(isPrimaryPinyin, out var pCol, out var sCol, out bool isLight);
+
+            // 1. Áp dụng Brush màu (Chạy chữ Karaoke hoặc màu tĩnh)
+            if (settings.EnableKaraokeHighlight)
             {
-                SecondaryLineText.Text = secondaryText;
+                PrimaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(pCol, progress, isLight);
+                SecondaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(sCol, progress, isLight);
+            }
+            else
+            {
+                PrimaryLineText.Foreground = new SolidColorBrush(pCol);
+                SecondaryLineText.Foreground = new SolidColorBrush(sCol);
+            }
+
+            // 2. Kích thước chữ và căn lề
+            double baseSize = settings.FontSize > 0 ? settings.FontSize : 11.5;
+            bool hasTwoLines = !string.IsNullOrWhiteSpace(secondaryText);
+
+            if (hasTwoLines)
+            {
+                PrimaryLineText.FontSize = baseSize;
+                SecondaryLineText.FontSize = Math.Max(9.0, baseSize - 1.5);
+                SecondaryLineText.Text = secondaryText!;
                 SecondaryLineText.Visibility = Visibility.Visible;
             }
             else
             {
+                PrimaryLineText.FontSize = baseSize;
                 SecondaryLineText.Visibility = Visibility.Collapsed;
             }
 
+            var textAlignment = settings.SecondaryAlignment switch
+            {
+                SecondaryTaskbarAlignment.Left => TextAlignment.Left,
+                SecondaryTaskbarAlignment.Right => TextAlignment.Right,
+                _ => TextAlignment.Center
+            };
+            var horizAlignment = settings.SecondaryAlignment switch
+            {
+                SecondaryTaskbarAlignment.Left => HorizontalAlignment.Left,
+                SecondaryTaskbarAlignment.Right => HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Center
+            };
+
+            PrimaryLineText.TextAlignment = textAlignment;
+            SecondaryLineText.TextAlignment = textAlignment;
+            ContentStack.HorizontalAlignment = horizAlignment;
+
+            PrimaryLineText.Text = primaryText;
             Visibility = Visibility.Visible;
             EnsurePositioned();
         });
@@ -190,6 +228,8 @@ public partial class DualTaskbarSecondaryWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
+            _currentPrimaryText = string.Empty;
+            _currentSecondaryText = null;
             Visibility = Visibility.Collapsed;
         });
     }
@@ -202,7 +242,8 @@ public partial class DualTaskbarSecondaryWindow : Window
             if (hwnd == IntPtr.Zero) return;
 
             var settings = _settingsManager.Current;
-            int targetWidth = 500;
+            int targetWidth = 750;
+            double baseSize = settings.FontSize > 0 ? settings.FontSize : 11.5;
 
             // 1. Thử dock vào Shell_SecondaryTrayWnd nếu có
             var secondaryTaskbarHwnd = NativeMethods.FindWindow("Shell_SecondaryTrayWnd", null);
@@ -219,7 +260,7 @@ public partial class DualTaskbarSecondaryWindow : Window
                 {
                     int taskbarWidth = tbRect.Right - tbRect.Left;
                     int taskbarHeight = tbRect.Bottom - tbRect.Top;
-                    int targetHeight = Math.Max(36, taskbarHeight);
+                    int targetHeight = Math.Max(38, taskbarHeight);
 
                     int targetX = settings.SecondaryAlignment switch
                     {
@@ -236,13 +277,13 @@ public partial class DualTaskbarSecondaryWindow : Window
                 }
             }
 
-            // 2. Nếu Windows không bật taskbar trên màn hình 2 -> Tự căn tọa độ vào đáy màn hình 2
+            // 2. Nếu Windows không bật taskbar trên màn hình 2 -> Neo nổi ở cạnh dưới màn hình 2
             var secondaryMonitorRect = GetSecondaryMonitorRect();
             if (secondaryMonitorRect.HasValue)
             {
                 var rect = secondaryMonitorRect.Value;
                 int monWidth = rect.Right - rect.Left;
-                int targetHeight = 44;
+                int targetHeight = Math.Max(56, (int)(baseSize * 3.6));
 
                 int targetX = settings.SecondaryAlignment switch
                 {

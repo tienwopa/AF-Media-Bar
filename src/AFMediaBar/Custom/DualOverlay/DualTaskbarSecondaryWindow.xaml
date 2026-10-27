@@ -24,13 +24,13 @@
             <!-- Dòng 1 trên Màn hình 2 -->
             <TextBlock x:Name="PrimaryLineText"
                        Text=""
-                       FontSize="11.5"
+                       FontSize="12"
                        FontWeight="SemiBold"
                        Foreground="#F2FFFFFF"
                        FontFamily="Segoe UI, Microsoft YaHei, Aptos"
                        TextAlignment="Center"
                        TextTrimming="CharacterEllipsis"
-                       MaxWidth="500">
+                       MaxWidth="720">
                 <TextBlock.Effect>
                     <DropShadowEffect x:Name="PrimaryShadow" Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.6" />
                 </TextBlock.Effect>
@@ -39,12 +39,12 @@
             <!-- Dòng 2 trên Màn hình 2 (Nếu gộp cả 2 dòng ở màn hình 2) -->
             <TextBlock x:Name="SecondaryLineText"
                        Text=""
-                       FontSize="10"
+                       FontSize="10.5"
                        Foreground="#FFD54F"
                        FontFamily="Segoe UI, Microsoft YaHei, Aptos"
                        TextAlignment="Center"
                        TextTrimming="CharacterEllipsis"
-                       MaxWidth="500"
+                       MaxWidth="720"
                        Margin="0,1,0,0"
                        Visibility="Collapsed">
                 <TextBlock.Effect>

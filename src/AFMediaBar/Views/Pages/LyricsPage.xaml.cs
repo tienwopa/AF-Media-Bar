@@ -29,6 +29,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         var settings = CustomSettings.Current;
         CustomEnableBilingualSwitch.IsChecked = settings.EnableBilingualLyrics;
         CustomEnableDualTaskbarSwitch.IsChecked = settings.EnableDualTaskbarLyrics;
+        CustomEnableKaraokeSwitch.IsChecked = settings.EnableKaraokeHighlight;
         CustomAutoAdaptColorSwitch.IsChecked = settings.AutoAdaptTaskbarColor;
         CustomAutoSkipVietnameseSwitch.IsChecked = settings.AutoSkipVietnamese;
 
@@ -79,6 +80,12 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     private void CustomEnableDualTaskbarSwitch_Click(object sender, RoutedEventArgs e)
     {
         CustomSettings.Current.EnableDualTaskbarLyrics = CustomEnableDualTaskbarSwitch.IsChecked ?? false;
+        CustomSettings.SaveSettings();
+    }
+
+    private void CustomEnableKaraokeSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        CustomSettings.Current.EnableKaraokeHighlight = CustomEnableKaraokeSwitch.IsChecked ?? true;
         CustomSettings.SaveSettings();
     }
 
