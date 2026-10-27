@@ -1,0 +1,193 @@
+<ui:FluentWindow x:Class="AFMediaBar.Views.Windows.TaskbarFullPanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:components="clr-namespace:AFMediaBar.Components"
+        Title="{DynamicResource Loc.Panel.FullPanel.WindowTitle}" Width="480" MinHeight="0" SizeToContent="Height"
+        ShowInTaskbar="False" Topmost="True" ResizeMode="NoResize"
+        WindowStyle="None" WindowCornerPreference="Round"
+        ExtendsContentIntoTitleBar="True" Background="Transparent"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        FontFamily="{DynamicResource AppTextFontFamily}"
+        FontWeight="{DynamicResource AppTextFontWeight}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+        Deactivated="Window_Deactivated" PreviewKeyDown="Window_PreviewKeyDown">
+    <ui:FluentWindow.Resources>
+        <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value><ScaleTransform ScaleX="1" ScaleY="1" /></Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="RenderTransform">
+                        <Setter.Value><ScaleTransform ScaleX="0.97" ScaleY="0.97" /></Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PanelPlayButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
+            <Setter Property="Background" Value="{DynamicResource AfAccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AfOnAccentBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{DynamicResource AfFocusVisualStyle}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ui:Button}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="24">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource AfAccentHoverBrush}" /></Trigger>
+                <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource AfAccentPressedBrush}" /></Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PanelCardStyle" TargetType="Border">
+            <Setter Property="Padding" Value="14" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style x:Key="PanelLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="PanelMetricStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="{DynamicResource AppTextStrongFontWeight}" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+        </Style>
+        <Style x:Key="PanelDeviceStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Popup.Placement" Value="Top" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate><TextBlock Text="{Binding MenuLabel}" TextWrapping="Wrap" MaxWidth="320" /></DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </ui:FluentWindow.Resources>
+    <Grid x:Name="PanelRoot" Margin="8" RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform><ScaleTransform x:Name="PanelScale" ScaleX="1" ScaleY="1" /></Grid.RenderTransform>
+        <!-- 装饰独立绘制，避免整块文字随阴影进入离屏渲染。原生材质仍由全局外观服务管理。 -->
+        <Border x:Name="PanelChrome" CornerRadius="16" Background="Transparent" IsHitTestVisible="False"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" />
+        <Border Padding="20" BorderThickness="1" BorderBrush="Transparent" Background="Transparent">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
+            <StackPanel>
+                <Grid x:Name="MediaInfoSection" Margin="0,0,0,18">
+                    <Grid.ColumnDefinitions><ColumnDefinition x:Name="ArtworkColumn" Width="76"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="ArtworkBorder" Width="76" Height="76" CornerRadius="12" ClipToBounds="True"
+                            Background="{DynamicResource ControlFillColorSecondaryBrush}" Cursor="Hand" Tag="MediaAction" MouseLeftButtonUp="ArtworkBorder_MouseLeftButtonUp">
+                        <Grid><ui:SymbolIcon x:Name="ArtworkPlaceholder" Symbol="MusicNote220" FontSize="30"/>
+                            <Image x:Name="ArtworkImage" Stretch="Uniform"/></Grid>
+                    </Border>
+                    <!-- 完整面板保留四行媒体信息的完整换行，随内容增长，不省略或固定高度裁剪。 -->
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock x:Name="TitleText" Text="{DynamicResource Loc.Panel.FullPanel.NoMedia}" FontSize="20"
+                                   FontWeight="{DynamicResource AppTextStrongFontWeight}" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ArtistText" Margin="0,5,0,0" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="SourceText" Margin="0,5,0,0" Style="{StaticResource PanelLabelStyle}"/>
+                        <TextBlock x:Name="LyricsSourceText" Margin="0,3,0,0" Style="{StaticResource PanelLabelStyle}" Visibility="Collapsed"/>
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel x:Name="MediaControlsSection" Margin="0,0,0,18">
+                    <Slider x:Name="ProgressSlider" Minimum="0" Maximum="1" Tag="MediaAction" Height="20"
+                            Style="{StaticResource AfAccentSliderStyle}"
+                            FocusVisualStyle="{DynamicResource AfFocusVisualStyle}"
+                            IsMoveToPointEnabled="True"
+                            PreviewMouseLeftButtonDown="ProgressSlider_MouseLeftButtonDown"
+                            PreviewMouseLeftButtonUp="ProgressSlider_MouseLeftButtonUp"
+                            LostMouseCapture="ProgressSlider_LostMouseCapture"/>
+                    <Grid Margin="1,2,1,12" Typography.NumeralAlignment="Tabular">
+                        <TextBlock x:Name="PositionText" Style="{StaticResource PanelLabelStyle}"/>
+                        <TextBlock x:Name="DurationText" Style="{StaticResource PanelLabelStyle}" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button x:Name="PreviousButton" Width="40" Height="40" Padding="0" ToolTip="{DynamicResource Loc.Common.PreviousTrack}" Click="PreviousButton_Click"><ui:SymbolIcon Symbol="Previous24" FontSize="20"/></ui:Button>
+                            <ui:Button x:Name="PlayButton" Width="48" Height="48" Margin="12,0" Padding="0" Style="{StaticResource PanelPlayButtonStyle}"
+                                       ToolTip="{DynamicResource Loc.Common.PlayPause}" Click="PlayButton_Click"><ui:SymbolIcon x:Name="PlayIcon" Symbol="Play24" FontSize="24"/></ui:Button>
+                            <ui:Button x:Name="NextButton" Width="40" Height="40" Padding="0" ToolTip="{DynamicResource Loc.Common.NextTrack}" Click="NextButton_Click"><ui:SymbolIcon Symbol="Next24" FontSize="20"/></ui:Button>
+                        </StackPanel>
+                        <ui:Button x:Name="RepeatButton" Grid.Column="2" Width="36" Height="36" Padding="0" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   ToolTip="{DynamicResource Loc.Panel.FullPanel.RepeatMode}" Click="RepeatButton_Click"><ui:SymbolIcon Symbol="ArrowRepeatAll24" FontSize="18"/></ui:Button>
+                    </Grid>
+                </StackPanel>
+
+                <Border x:Name="AudioControlsSection" Style="{StaticResource PanelCardStyle}" Margin="0,0,0,12">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="InputDeviceGap" Width="12"/><ColumnDefinition x:Name="InputDeviceColumn" Width="*"/></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="{DynamicResource Loc.Common.OutputDevice}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,6" />
+                                <components:ReleaseOpenComboBox x:Name="DeviceCombo" Style="{StaticResource PanelDeviceStyle}"
+                                          ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=SelectedItem.DeviceHint}"
+                                          DropDownOpened="DeviceCombo_DropDownOpened" SelectionChanged="DeviceCombo_SelectionChanged" PreviewMouseWheel="DeviceCombo_PreviewMouseWheel"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock x:Name="InputDeviceLabel" Text="{DynamicResource Loc.Common.InputDevice}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,0,6" />
+                                <components:ReleaseOpenComboBox x:Name="InputDeviceCombo" Style="{StaticResource PanelDeviceStyle}"
+                                          ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=SelectedItem.DeviceHint}"
+                                          DropDownOpened="InputDeviceCombo_DropDownOpened" SelectionChanged="InputDeviceCombo_SelectionChanged" PreviewMouseWheel="InputDeviceCombo_PreviewMouseWheel"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="AudioDeviceStatusText">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource PanelLabelStyle}">
+                                    <Setter Property="Margin" Value="0,6,0,0" />
+                                    <Style.Triggers>
+                                        <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger>
+                                        <Trigger Property="Text" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Border Margin="0,14,0,0" Padding="0,12,0,0" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{DynamicResource Loc.Panel.Volume.CurrentAppVolume}" Style="{StaticResource PanelLabelStyle}" Margin="0,0,12,0"/>
+                                    <TextBlock x:Name="VolumeText" Grid.Column="1" FontSize="12" FontWeight="{DynamicResource AppTextMediumFontWeight}" Typography.NumeralAlignment="Tabular"/>
+                                </Grid>
+                                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Margin="0,6,0,0" Height="24"
+                                        Style="{StaticResource AfAccentSliderStyle}" FocusVisualStyle="{DynamicResource AfFocusVisualStyle}"
+                                        IsMoveToPointEnabled="True" SmallChange="2" LargeChange="10"
+                                        PreviewMouseLeftButtonUp="VolumeSlider_MouseLeftButtonUp" PreviewMouseWheel="VolumeSlider_PreviewMouseWheel"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="PerformanceSection" Style="{StaticResource PanelCardStyle}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,8,0"><TextBlock Text="{DynamicResource Loc.Panel.Performance.Memory}" Style="{StaticResource PanelLabelStyle}"/><TextBlock x:Name="RamMetric" Text="—" Style="{StaticResource PanelMetricStyle}"/></StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0"><TextBlock Text="CPU" Style="{StaticResource PanelLabelStyle}"/><TextBlock x:Name="CpuMetric" Text="—" Style="{StaticResource PanelMetricStyle}"/></StackPanel>
+                            <StackPanel Grid.Column="2" Margin="0,0,8,0"><TextBlock Text="GPU" Style="{StaticResource PanelLabelStyle}"/><TextBlock x:Name="GpuMetric" Text="—" Style="{StaticResource PanelMetricStyle}"/></StackPanel>
+                            <StackPanel Grid.Column="3"><TextBlock Text="{DynamicResource Loc.Panel.Performance.ProcessMemory}" Style="{StaticResource PanelLabelStyle}"/><TextBlock x:Name="ProcessMetric" Text="—" Style="{StaticResource PanelMetricStyle}"/></StackPanel>
+                        </Grid>
+                        <Border Margin="0,12,0,0" Padding="0,10,0,0" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <StackPanel><TextBlock Text="{DynamicResource Loc.Panel.Performance.Upload}" Style="{StaticResource PanelLabelStyle}"/><TextBlock x:Name="UploadMetric" Text="—" Style="{StaticResource PanelMetricStyle}"/></StackPanel>
+                                <StackPanel Grid.Column="1"><TextBlock Text="{DynamicResource Loc.Panel.Performance.Download}" Style="{StaticResource PanelLabelStyle}"/><TextBlock x:Name="DownloadMetric" Text="—" Style="{StaticResource PanelMetricStyle}"/></StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
