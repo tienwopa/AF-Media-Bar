@@ -1,6 +1,6 @@
 using System.Windows.Threading;
 using AFMediaBar.Classes.Models;
-using AFMediaBar.Classes.Services.Media;
+using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Translation;
 
@@ -62,7 +62,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         // Gui document goc sang BilingualLyricsManager de bat dau dich ngam neu can
-        var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration.TotalSeconds}";
+        var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
         _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
 
         // Tam thoi dung document goc neu chua co ban dich
@@ -90,7 +90,7 @@ public sealed class DualOverlayCoordinator : IDisposable
             return;
         }
 
-        var currentSeconds = snapshot.Position.TotalSeconds;
+        var currentSeconds = snapshot.Position;
         var lines = _activeDocument.Lines;
         if (lines.Count == 0)
         {
