@@ -29,12 +29,31 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         var settings = CustomSettings.Current;
         CustomEnableBilingualSwitch.IsChecked = settings.EnableBilingualLyrics;
         CustomEnableDualTaskbarSwitch.IsChecked = settings.EnableDualTaskbarLyrics;
-        CustomTransPlacementCombo.SelectedIndex = (int)settings.TranslationPlacement;
-        CustomPinyinPlacementCombo.SelectedIndex = (int)settings.RomanizationPlacement;
+        CustomAutoAdaptColorSwitch.IsChecked = settings.AutoAdaptTaskbarColor;
         CustomAutoSkipVietnameseSwitch.IsChecked = settings.AutoSkipVietnamese;
 
+        CustomTransPlacementCombo.SelectedIndex = (int)settings.TranslationPlacement;
+        CustomPinyinPlacementCombo.SelectedIndex = (int)settings.RomanizationPlacement;
+        CustomSecondaryAlignCombo.SelectedIndex = (int)settings.SecondaryAlignment;
+
+        SelectFontSizeInCombo(CustomFontSizeCombo, settings.FontSize);
         SelectColorInCombo(CustomTransColorCombo, settings.TranslationColor);
         SelectColorInCombo(CustomPinyinColorCombo, settings.RomanizationColor);
+    }
+
+    private static void SelectFontSizeInCombo(System.Windows.Controls.ComboBox combo, double size)
+    {
+        string sizeStr = size.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is System.Windows.Controls.ComboBoxItem item &&
+                string.Equals(item.Tag?.ToString(), sizeStr, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+        if (combo.Items.Count > 2) combo.SelectedIndex = 2; // Tiêu chuẩn 11.5 pt
     }
 
     private static void SelectColorInCombo(System.Windows.Controls.ComboBox combo, string hexColor)
@@ -61,6 +80,32 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     {
         CustomSettings.Current.EnableDualTaskbarLyrics = CustomEnableDualTaskbarSwitch.IsChecked ?? false;
         CustomSettings.SaveSettings();
+    }
+
+    private void CustomAutoAdaptColorSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        CustomSettings.Current.AutoAdaptTaskbarColor = CustomAutoAdaptColorSwitch.IsChecked ?? true;
+        CustomSettings.SaveSettings();
+    }
+
+    private void CustomFontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomFontSizeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            item.Tag is string tagStr &&
+            double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double size))
+        {
+            CustomSettings.Current.FontSize = size;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomSecondaryAlignCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomSecondaryAlignCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.SecondaryAlignment = (SecondaryTaskbarAlignment)CustomSecondaryAlignCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
     }
 
     private void CustomTransPlacementCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
