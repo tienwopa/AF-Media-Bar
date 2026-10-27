@@ -30,6 +30,7 @@ using AFMediaBar.Classes.Services.Updates;
 using AFMediaBar.Classes.Settings;
 using AFMediaBar.Resources;
 using AFMediaBar.ViewModels.Components;
+using AFMediaBar.Custom;
 using System.Globalization;
 using Wpf.Ui;
 using Wpf.Ui.Appearance;
@@ -351,6 +352,9 @@ namespace AFMediaBar
 
                 // 组件相关VM
                 services.AddSingleton<AFContextMenuViewModel>();
+
+                // === TÍNH NĂNG TÙY BIẾN: SONG NGỮ & DUAL OVERLAY ===
+                services.AddCustomDualOverlayFeature();
             }).Build();
 
         private ApplicationThemeCoordinator? _themeCoordinator;
@@ -595,6 +599,9 @@ namespace AFMediaBar
             _memoryPruneCoordinator = Services.GetRequiredService<MemoryPruneCoordinator>();
             _powerStateMonitor.Start();
             _memoryPruneCoordinator.Start();
+
+            // Khởi động tính năng Song ngữ & Dual Overlay
+            Services.UseCustomDualOverlayFeature();
 
 #if DEBUG
             _debugLyricsDiagnostics = new DebugLyricsDiagnostics();
