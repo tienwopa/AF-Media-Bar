@@ -29,9 +29,26 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         var settings = CustomSettings.Current;
         CustomEnableBilingualSwitch.IsChecked = settings.EnableBilingualLyrics;
         CustomEnableDualTaskbarSwitch.IsChecked = settings.EnableDualTaskbarLyrics;
-        CustomContentModeCombo.SelectedIndex = (int)settings.ContentMode;
-        CustomPlacementCombo.SelectedIndex = (int)settings.PlacementStrategy;
+        CustomTransPlacementCombo.SelectedIndex = (int)settings.TranslationPlacement;
+        CustomPinyinPlacementCombo.SelectedIndex = (int)settings.RomanizationPlacement;
         CustomAutoSkipVietnameseSwitch.IsChecked = settings.AutoSkipVietnamese;
+
+        SelectColorInCombo(CustomTransColorCombo, settings.TranslationColor);
+        SelectColorInCombo(CustomPinyinColorCombo, settings.RomanizationColor);
+    }
+
+    private static void SelectColorInCombo(System.Windows.Controls.ComboBox combo, string hexColor)
+    {
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is System.Windows.Controls.ComboBoxItem item &&
+                string.Equals(item.Tag?.ToString(), hexColor, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+        if (combo.Items.Count > 0 && combo.SelectedIndex < 0) combo.SelectedIndex = 0;
     }
 
     private void CustomEnableBilingualSwitch_Click(object sender, RoutedEventArgs e)
@@ -46,20 +63,38 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         CustomSettings.SaveSettings();
     }
 
-    private void CustomContentModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void CustomTransPlacementCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CustomContentModeCombo.SelectedIndex >= 0)
+        if (CustomTransPlacementCombo.SelectedIndex >= 0)
         {
-            CustomSettings.Current.ContentMode = (SecondaryLyricsContentMode)CustomContentModeCombo.SelectedIndex;
+            CustomSettings.Current.TranslationPlacement = (LyricElementPlacement)CustomTransPlacementCombo.SelectedIndex;
             CustomSettings.SaveSettings();
         }
     }
 
-    private void CustomPlacementCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void CustomPinyinPlacementCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CustomPlacementCombo.SelectedIndex >= 0)
+        if (CustomPinyinPlacementCombo.SelectedIndex >= 0)
         {
-            CustomSettings.Current.PlacementStrategy = (DualLyricsPlacementStrategy)CustomPlacementCombo.SelectedIndex;
+            CustomSettings.Current.RomanizationPlacement = (LyricElementPlacement)CustomPinyinPlacementCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomTransColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomTransColorCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string hex)
+        {
+            CustomSettings.Current.TranslationColor = hex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomPinyinColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomPinyinColorCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string hex)
+        {
+            CustomSettings.Current.RomanizationColor = hex;
             CustomSettings.SaveSettings();
         }
     }

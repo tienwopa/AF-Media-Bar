@@ -55,6 +55,7 @@
     <PackageReference Include="F23.StringSimilarity" Version="7.0.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
     <PackageReference Include="MicaWPF" Version="7.1.0" />
+    <PackageReference Include="TinyPinyin.Net" Version="1.0.2" />
     <PackageReference Include="WPF-UI" Version="4.2.0" />
     <PackageReference Include="WPF-UI.DependencyInjection" Version="4.2.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
@@ -116,8 +117,7 @@
 
   <!-- WebView2's package adds reference XML documentation after the single-file bundle is computed. Those files are not
        runtime dependencies and violate the installer/release contract that the publish directory contains one executable. -->
-  <Target Name="RemoveWebView2ReferenceDocumentation" AfterTargets="Publish"
-          Condition="'$(PublishSingleFile)' == 'true'">
+  <Target Name="RemoveWebView2ReferenceDocumentation" AfterTargets="Publish" Condition="'$(PublishSingleFile)' == 'true'">
     <ItemGroup>
       <_WebView2ReferenceDocumentation Include="$(PublishDir)Microsoft.Web.WebView2.*.xml" />
     </ItemGroup>
@@ -126,8 +126,7 @@
 
   <Target Name="PublishMemoryHelper" BeforeTargets="AssignTargetPaths">
     <PropertyGroup><MemoryHelperOutput>$(MSBuildProjectDirectory)\obj\memory-helper\$(Configuration)\payload\</MemoryHelperOutput></PropertyGroup>
-    <MSBuild Projects="..\AFMediaBar.MemoryHelper\AFMediaBar.MemoryHelper.csproj" Targets="Restore;Publish"
-             BuildInParallel="false" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=false;IncludeNativeLibrariesForSelfExtract=false;PublishDir=$(MemoryHelperOutput)" />
+    <MSBuild Projects="..\AFMediaBar.MemoryHelper\AFMediaBar.MemoryHelper.csproj" Targets="Restore;Publish" BuildInParallel="false" Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=false;IncludeNativeLibrariesForSelfExtract=false;PublishDir=$(MemoryHelperOutput)" />
     <ItemGroup>
       <MemoryHelperFiles Include="$(MemoryHelperOutput)*" Exclude="$(MemoryHelperOutput)payload.files" />
     </ItemGroup>

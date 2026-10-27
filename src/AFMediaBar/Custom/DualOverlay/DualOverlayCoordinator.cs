@@ -1,5 +1,4 @@
 using System.Windows.Threading;
-using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
@@ -8,8 +7,8 @@ using AFMediaBar.Custom.Translation;
 namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
-/// Điều phối logic hiển thị song ngữ & Dual Taskbar Native.
-/// Tự động tách hoặc gộp lời dịch tiếng Việt và Pinyin trên thanh Taskbar theo cấu hình và số lượng màn hình.
+/// Điều phối logic hiển thị đa dạng vị trí cho Lời dịch và Pinyin:
+/// Cho phép linh hoạt cấu hình độc lập vị trí trên Taskbar chính hoặc Màn hình thứ 2.
 /// </summary>
 public sealed class DualOverlayCoordinator : IDisposable
 {
@@ -119,78 +118,87 @@ public sealed class DualOverlayCoordinator : IDisposable
             return;
         }
 
-        // 1. Trich xuat ban dich va pinyin
         string? translation = matchedLine.Translation;
         string? pinyin = matchedLine.Romanization;
 
-        // Neu bai hat goc da la tieng Viet va co bat AutoSkipVietnamese -> An ban dich
+        // Bỏ qua dịch nếu bài hát là Tiếng Việt
         if (_isCurrentTrackVietnamese && settings.AutoSkipVietnamese)
         {
             translation = null;
         }
 
-        // 2. Kiem tra xem may co man hinh thu 2 khong
-        bool hasSecondaryScreen = NativeMethods.FindWindow("Shell_SecondaryTrayWnd", null) != IntPtr.Zero;
-
-        // 3. Ap dung che do hien thi
-        switch (settings.ContentMode)
+        // Tự sinh pinyin dự phòng nếu dòng này chưa có
+        if (string.IsNullOrWhiteSpace(pinyin) && PinyinGeneratorService.HasChinese(matchedLine.Text))
         {
-            case SecondaryLyricsContentMode.TranslationOnly:
-                _primaryWindow.UpdateContent(translation ?? string.Empty, null);
-                _secondaryWindow.HideContent();
-                break;
-
-            case SecondaryLyricsContentMode.RomanizationOnly:
-                _primaryWindow.UpdateContent(pinyin ?? string.Empty, null);
-                _secondaryWindow.HideContent();
-                break;
-
-            case SecondaryLyricsContentMode.Both:
-            default:
-                DispatchBoth(translation, pinyin, hasSecondaryScreen, settings.PlacementStrategy);
-                break;
+            pinyin = PinyinGeneratorService.ToPinyin(matchedLine.Text);
         }
+
+        DispatchContent(translation, pinyin, settings);
     }
 
-    private void DispatchBoth(
-        string? translation,
-        string? pinyin,
-        bool hasSecondaryScreen,
-        DualLyricsPlacementStrategy strategy)
+    private void DispatchContent(string? translation, string? pinyin, CustomSettings settings)
     {
-        bool hasTrans = !string.IsNullOrWhiteSpace(translation);
-        bool hasPin = !string.IsNullOrWhiteSpace(pinyin);
+        // 1. Phân bổ cho Primary Taskbar Window
+        bool showTransOnPrimary = settings.TranslationPlacement == LyricElementPlacement.PrimaryTaskbar ||
+                                  settings.TranslationPlacement == LyricElementPlacement.BothScreens;
 
-        // Truong hop chi co 1 trong 2 noi dung
-        if (hasTrans && !hasPin)
+        bool showPinyinOnPrimary = settings.RomanizationPlacement == LyricElementPlacement.PrimaryTaskbar ||
+                                   settings.RomanizationPlacement == LyricElementPlacement.BothScreens;
+
+        string? primaryLine1 = null;
+        string? primaryLine2 = null;
+
+        if (showTransOnPrimary && !string.IsNullOrWhiteSpace(translation))
         {
-            _primaryWindow.UpdateContent(translation!, null);
-            _secondaryWindow.HideContent();
-            return;
+            primaryLine1 = translation;
+            if (showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin))
+            {
+                primaryLine2 = pinyin;
+            }
         }
-        if (!hasTrans && hasPin)
+        else if (showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin))
         {
-            _primaryWindow.UpdateContent(pinyin!, null);
-            _secondaryWindow.HideContent();
-            return;
-        }
-        if (!hasTrans && !hasPin)
-        {
-            HideAllWindows();
-            return;
+            primaryLine1 = pinyin;
         }
 
-        // Truong hop co ca ban dich va pinyin:
-        if (strategy == DualLyricsPlacementStrategy.AutoSplit && hasSecondaryScreen)
+        if (!string.IsNullOrWhiteSpace(primaryLine1))
         {
-            // TACH: Taskbar chinh hien loi dich, Taskbar man hinh 2 hien Pinyin
-            _primaryWindow.UpdateContent(translation!, null);
-            _secondaryWindow.UpdateContent(pinyin!);
+            _primaryWindow.UpdateContent(primaryLine1, primaryLine2, isPrimaryPinyin: (primaryLine1 == pinyin));
         }
         else
         {
-            // GOP LAI tai Taskbar chinh (Dòng trên: Lời dịch, Dòng dưới: Pinyin)
-            _primaryWindow.UpdateContent(translation!, pinyin);
+            _primaryWindow.HideContent();
+        }
+
+        // 2. Phân bổ cho Secondary Screen Window
+        bool showTransOnSec = settings.TranslationPlacement == LyricElementPlacement.SecondaryScreen ||
+                              settings.TranslationPlacement == LyricElementPlacement.BothScreens;
+
+        bool showPinyinOnSec = settings.RomanizationPlacement == LyricElementPlacement.SecondaryScreen ||
+                               settings.RomanizationPlacement == LyricElementPlacement.BothScreens;
+
+        string? secLine1 = null;
+        string? secLine2 = null;
+
+        if (showTransOnSec && !string.IsNullOrWhiteSpace(translation))
+        {
+            secLine1 = translation;
+            if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
+            {
+                secLine2 = pinyin;
+            }
+        }
+        else if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
+        {
+            secLine1 = pinyin;
+        }
+
+        if (!string.IsNullOrWhiteSpace(secLine1))
+        {
+            _secondaryWindow.UpdateContent(secLine1, secLine2, isPrimaryPinyin: (secLine1 == pinyin));
+        }
+        else
+        {
             _secondaryWindow.HideContent();
         }
     }

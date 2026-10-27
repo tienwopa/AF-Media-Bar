@@ -5,36 +5,21 @@ using System.Text.Json.Serialization;
 namespace AFMediaBar.Custom.Settings;
 
 /// <summary>
-/// Chế độ nội dung lời hiển thị phụ.
+/// Vị trí hiển thị của từng thành phần (Lời dịch / Pinyin).
 /// </summary>
-public enum SecondaryLyricsContentMode
+public enum LyricElementPlacement
 {
-    /// <summary>Hiển thị song song cả Lời dịch và Pinyin/Phiên âm (nếu có).</summary>
-    Both = 0,
+    /// <summary>Hiển thị ở phía đối diện của Taskbar chính.</summary>
+    PrimaryTaskbar = 0,
 
-    /// <summary>Chỉ hiển thị Lời dịch Tiếng Việt.</summary>
-    TranslationOnly = 1,
+    /// <summary>Hiển thị ở Màn hình thứ 2.</summary>
+    SecondaryScreen = 1,
 
-    /// <summary>Chỉ hiển thị Pinyin / Phiên âm.</summary>
-    RomanizationOnly = 2
-}
+    /// <summary>Hiển thị ở cả hai màn hình.</summary>
+    BothScreens = 2,
 
-/// <summary>
-/// Chiến lược phân bổ vị trí hiển thị song song.
-/// </summary>
-public enum DualLyricsPlacementStrategy
-{
-    /// <summary>
-    /// Tự động tách biệt: Lời dịch ở Taskbar chính bên đối diện, Pinyin ở Taskbar Màn hình 2.
-    /// Nếu máy chỉ có 1 màn hình: Tự động gộp 2 dòng tại Taskbar chính.
-    /// </summary>
-    AutoSplit = 0,
-
-    /// <summary>Luôn gộp 2 dòng (dịch + pinyin) tại phía đối diện của Taskbar chính.</summary>
-    CombinedOppositeTaskbar = 1,
-
-    /// <summary>Luôn gộp 2 dòng tại Taskbar Màn hình thứ 2.</summary>
-    CombinedSecondaryMonitor = 2
+    /// <summary>Không hiển thị thành phần này.</summary>
+    None = 3
 }
 
 /// <summary>
@@ -51,17 +36,23 @@ public sealed class CustomSettings
     /// <summary>Bật/tắt thanh Taskbar phụ hiển thị lời dịch / pinyin.</summary>
     public bool EnableDualTaskbarLyrics { get; set; } = true;
 
-    /// <summary>Chế độ nội dung lời bài hát hiển thị.</summary>
-    public SecondaryLyricsContentMode ContentMode { get; set; } = SecondaryLyricsContentMode.Both;
+    /// <summary>Vị trí hiển thị của Lời dịch Tiếng Việt.</summary>
+    public LyricElementPlacement TranslationPlacement { get; set; } = LyricElementPlacement.PrimaryTaskbar;
 
-    /// <summary>Chiến lược phân bổ vị trí.</summary>
-    public DualLyricsPlacementStrategy PlacementStrategy { get; set; } = DualLyricsPlacementStrategy.AutoSplit;
+    /// <summary>Vị trí hiển thị của Pinyin / Phiên âm.</summary>
+    public LyricElementPlacement RomanizationPlacement { get; set; } = LyricElementPlacement.SecondaryScreen;
 
     /// <summary>Tự động ẩn bản dịch khi lời bài hát gốc đã là Tiếng Việt.</summary>
     public bool AutoSkipVietnamese { get; set; } = true;
 
+    /// <summary>Màu sắc chữ của Lời dịch Tiếng Việt (mã HEX, ví dụ: #FFFFFF).</summary>
+    public string TranslationColor { get; set; } = "#FFFFFF";
+
+    /// <summary>Màu sắc chữ của Pinyin / Phiên âm (mã HEX, ví dụ: #FFD54F).</summary>
+    public string RomanizationColor { get; set; } = "#FFD54F";
+
     /// <summary>Cỡ chữ hiển thị (DIP).</summary>
-    public double FontSize { get; set; } = 12.0;
+    public double FontSize { get; set; } = 11.5;
 
     /// <summary>Độ mờ đục của chữ (0.2 -> 1.0).</summary>
     public double Opacity { get; set; } = 0.95;
@@ -93,9 +84,6 @@ public sealed class CustomSettingsManager
         LoadSettings();
     }
 
-    /// <summary>
-    /// Đọc cấu hình từ ổ đĩa với try-catch an toàn.
-    /// </summary>
     public void LoadSettings()
     {
         try
@@ -120,9 +108,6 @@ public sealed class CustomSettingsManager
         SaveSettings();
     }
 
-    /// <summary>
-    /// Ghi cấu hình xuống ổ đĩa an toàn.
-    /// </summary>
     public void SaveSettings()
     {
         try

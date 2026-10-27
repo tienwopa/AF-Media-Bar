@@ -1,14 +1,14 @@
 using System.Windows;
 using System.Windows.Interop;
-using AFMediaBar.Classes.Services;
+using System.Windows.Media;
 using AFMediaBar.Classes.Interop;
+using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
 
 namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
-/// Cửa sổ hiển thị lời dịch / pinyin nhúng chìm trực tiếp vào thanh Taskbar chính của Windows (Shell_TrayWnd).
-/// Nằm ở góc bên phải (đối diện với thanh media chính), không bao giờ đè lên cửa sổ ứng dụng khác.
+/// Cửa sổ hiển thị nhúng chìm vào thanh Taskbar chính của Windows (Shell_TrayWnd).
 /// </summary>
 public partial class DualTaskbarPrimaryWindow : Window
 {
@@ -25,13 +25,38 @@ public partial class DualTaskbarPrimaryWindow : Window
         _dockService = dockService;
         _settingsManager = settingsManager;
 
-        Loaded += (_, _) => EnsureDockedAndPositioned();
+        Loaded += (_, _) =>
+        {
+            ApplyColors();
+            EnsureDockedAndPositioned();
+        };
+
+        _settingsManager.SettingsChanged += _ => Dispatcher.Invoke(ApplyColors);
+    }
+
+    public void ApplyColors()
+    {
+        try
+        {
+            var settings = _settingsManager.Current;
+            var bc = new BrushConverter();
+
+            if (bc.ConvertFromString(settings.TranslationColor) is Brush tb)
+            {
+                PrimaryLineText.Foreground = tb;
+            }
+            if (bc.ConvertFromString(settings.RomanizationColor) is Brush rb)
+            {
+                SecondaryLineText.Foreground = rb;
+            }
+        }
+        catch { }
     }
 
     /// <summary>
     /// Cập nhật nội dung hiển thị theo 1 hoặc 2 dòng.
     /// </summary>
-    public void UpdateContent(string primaryText, string? secondaryText = null)
+    public void UpdateContent(string primaryText, string? secondaryText = null, bool isPrimaryPinyin = false)
     {
         Dispatcher.Invoke(() =>
         {
@@ -39,6 +64,21 @@ public partial class DualTaskbarPrimaryWindow : Window
             {
                 Visibility = Visibility.Collapsed;
                 return;
+            }
+
+            var settings = _settingsManager.Current;
+            var bc = new BrushConverter();
+
+            // Áp dụng đúng màu cho dòng 1 và dòng 2
+            if (isPrimaryPinyin)
+            {
+                if (bc.ConvertFromString(settings.RomanizationColor) is Brush rb) PrimaryLineText.Foreground = rb;
+                if (bc.ConvertFromString(settings.TranslationColor) is Brush tb) SecondaryLineText.Foreground = tb;
+            }
+            else
+            {
+                if (bc.ConvertFromString(settings.TranslationColor) is Brush tb) PrimaryLineText.Foreground = tb;
+                if (bc.ConvertFromString(settings.RomanizationColor) is Brush rb) SecondaryLineText.Foreground = rb;
             }
 
             PrimaryLineText.Text = primaryText;
@@ -66,24 +106,15 @@ public partial class DualTaskbarPrimaryWindow : Window
         });
     }
 
-    /// <summary>
-    /// Nhúng trực tiếp vào Taskbar và căn chỉnh tọa độ bên phải trước khay đồng hồ.
-    /// </summary>
     public void EnsureDockedAndPositioned()
     {
         try
         {
             var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero)
-            {
-                return;
-            }
+            if (hwnd == IntPtr.Zero) return;
 
             var taskbarHwnd = NativeMethods.FindWindow("Shell_TrayWnd", null);
-            if (taskbarHwnd == IntPtr.Zero)
-            {
-                return;
-            }
+            if (taskbarHwnd == IntPtr.Zero) return;
 
             if (!_isDocked || _lastTaskbarHwnd != taskbarHwnd)
             {
@@ -97,7 +128,6 @@ public partial class DualTaskbarPrimaryWindow : Window
                 int taskbarWidth = tbRect.Right - tbRect.Left;
                 int taskbarHeight = tbRect.Bottom - tbRect.Top;
 
-                // Tim khay he thong de tinh toan khoang cach
                 int trayWidth = 240;
                 var trayHwnd = NativeMethods.FindWindowEx(taskbarHwnd, IntPtr.Zero, "TrayNotifyWnd", null);
                 if (trayHwnd != IntPtr.Zero && NativeMethods.GetWindowRect(trayHwnd, out var trayRect))
@@ -110,7 +140,6 @@ public partial class DualTaskbarPrimaryWindow : Window
                 int targetX = Math.Max(10, taskbarWidth - trayWidth - targetWidth - 20);
                 int targetY = (taskbarHeight - targetHeight) / 2;
 
-                // Di chuyen va dat vi tri chinh xac ben trong Taskbar
                 NativeMethods.SetWindowPos(
                     hwnd,
                     0,
