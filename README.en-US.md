@@ -12,7 +12,7 @@
   <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/graphs/contributors"><img src="https://img.shields.io/github/contributors/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=contributors" alt="contributors"></a>
   <a href="docs/localization.md"><img src="https://img.shields.io/badge/UI%20languages-4-0078d4?style=flat-square" alt="UI languages"></a>
   <br>
-  <a href="README.md">简体中文</a> · English · <a href="README.vi-VN.md">Tiếng Việt</a>
+  <a href="README.zh-CN.md">简体中文</a> · English · <a href="README.md">Tiếng Việt</a>
   <br>
   <a href="#download-and-run">Download</a> · <a href="#live-demo">Live demo</a> · <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/issues/new?template=bug_report.yml">Report a bug</a> · <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/issues/new?template=feature_request.yml">Request a feature</a> · <a href="docs/localization.md">Help translate</a> · <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/discussions">Discussions and help</a>
 </p>

@@ -1,116 +1,141 @@
 <p align="center">
-  <img src="docs/assets/readme/hero-zh.svg" width="100%" alt="AF Media Bar 布局示意：媒体栏位于 Windows 任务栏左下角，完整媒体弹窗在其正上方，软件图标与项目介绍位于右侧">
+  <img src="docs/assets/readme/hero-vi.svg" width="100%" alt="Minh họa AF Media Bar: thanh media ở góc dưới bên trái thanh tác vụ Windows, bảng điều khiển đầy đủ phía trên, biểu tượng và giới thiệu dự án bên phải">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/releases"><img src="https://img.shields.io/github/v/release/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC" alt="最新版本"></a>
-  <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/releases"><img src="https://img.shields.io/github/downloads/Fervent-Tempo/AF-Media-Bar/total?style=flat-square&amp;label=%E4%B8%8B%E8%BD%BD%E9%87%8F" alt="下载量"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=%E8%AE%B8%E5%8F%AF%E8%AF%81" alt="许可证"></a>
-  <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/Fervent-Tempo/AF-Media-Bar/build.yml?style=flat-square&amp;label=%E6%9E%84%E5%BB%BA&amp;branch=main" alt="构建"></a>
-  <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/stargazers"><img src="https://img.shields.io/github/stars/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=Stars&amp;color=gold" alt="Stars"></a>
-  <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/forks"><img src="https://img.shields.io/github/forks/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=Forks" alt="Forks"></a>
-  <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/graphs/contributors"><img src="https://img.shields.io/github/contributors/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=%E8%B4%A1%E7%8C%AE%E8%80%85" alt="贡献者"></a>
-  <a href="docs/localization.md"><img src="https://img.shields.io/badge/%E7%95%8C%E9%9D%A2%E8%AF%AD%E8%A8%80-4-0078d4?style=flat-square" alt="界面语言"></a>
+  <a href="https://github.com/tienwopa/AF-Media-Bar/releases"><img src="https://img.shields.io/github/v/release/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=phi%C3%AAn%20b%E1%BA%A3n" alt="phiên bản"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Fervent-Tempo/AF-Media-Bar?style=flat-square&amp;label=gi%E1%BA%A5y%20ph%C3%A9p" alt="giấy phép"></a>
+  <a href="https://github.com/tienwopa/AF-Media-Bar/stargazers"><img src="https://img.shields.io/github/stars/tienwopa/AF-Media-Bar?style=flat-square&amp;label=Stars&amp;color=gold" alt="Stars"></a>
+  <a href="https://github.com/tienwopa/AF-Media-Bar/forks"><img src="https://img.shields.io/github/forks/tienwopa/AF-Media-Bar?style=flat-square&amp;label=Forks" alt="Forks"></a>
   <br>
-  简体中文 · <a href="README.en-US.md">English</a> · <a href="README.vi-VN.md">Tiếng Việt</a>
+  <strong>Tiếng Việt</strong> · <a href="README.en-US.md">English</a> · <a href="README.zh-CN.md">简体中文</a>
   <br>
-  <a href="#下载安装">下载运行</a> · <a href="#运行演示">运行演示</a> · <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/issues/new?template=bug_report.yml">报告问题</a> · <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/issues/new?template=feature_request.yml">功能建议</a> · <a href="docs/localization.md">参与翻译</a> · <a href="https://github.com/Fervent-Tempo/AF-Media-Bar/discussions">讨论与求助</a>
+  <a href="#tải-về-và-khởi-chạy">Tải về</a> · <a href="#xem-trước-trực-tiếp">Xem trước</a> · <a href="https://github.com/tienwopa/AF-Media-Bar/issues">Báo cáo lỗi / Góp ý</a> · <a href="https://github.com/Fervent-Tempo/AF-Media-Bar">Dự án gốc (Upstream)</a>
 </p>
 
-AF Media Bar 是一款 Windows 10/11 任务栏媒体控制器。它从系统媒体会话读取正在播放的内容，让媒体信息、歌词、播放控制和设备切换在桌面更直观易用。
+---
 
-## 运行演示
+## 🌟 Giới thiệu về Bản Fork này (`tienwopa/AF-Media-Bar`)
+
+Bản fork này được phát triển và tối ưu hóa dựa trên dự án gốc mã nguồn mở [Fervent-Tempo/AF-Media-Bar](https://github.com/Fervent-Tempo/AF-Media-Bar). Mục tiêu chính là đem lại trải nghiệm nghe nhạc song ngữ hoàn hảo, mở rộng khả năng hiển thị lời bài hát độc lập trên nhiều màn hình, và tự động hóa phiên âm Pinyin mượt mà cho người dùng.
+
+### ✨ Các tính năng nâng cao nổi bật được bổ sung:
+
+1. **Dual Taskbar Overlay (2 thanh hiển thị lời bài hát độc lập):**
+   - Hỗ trợ hiển thị đồng thời 2 Taskbar Overlay (Màn hình 1 và Màn hình 2, hoặc hai vị trí riêng biệt).
+   - Cho phép tùy chỉnh độc lập từng thanh: Cỡ chữ (Nhỏ, Tiêu chuẩn, Lớn, Cực lớn), Phông chữ (Font family), Màu sắc tùy chọn, và Căn lề hiển thị (Trái, Giữa, Phải).
+
+2. **Hiển thị Lời dịch Tiếng Việt / Song ngữ thời gian thực:**
+   - Đồng bộ hiển thị song song lời gốc và lời dịch tiếng Việt (hoặc lời phụ) trên thanh Taskbar một cách nhịp nhàng theo tiến trình phát bài hát.
+   - Hỗ trợ tùy chọn đưa lời dịch sang màn hình phụ riêng biệt để không chiếm diện tích màn hình chính.
+
+3. **Tự động tạo Pinyin Offline:**
+   - Tích hợp sẵn bộ máy chuyển đổi phiên âm offline siêu nhẹ (`TinyPinyin.Net`) cho toàn bộ bài hát tiếng Trung.
+   - Không cần kết nối Internet, không gửi dữ liệu ra bên ngoài, tốc độ xử lý tức thì và tự động tách/ghép dòng Pinyin thông minh.
+
+4. **Tự động thích ứng màu nền Taskbar (Auto Adapt Color):**
+   - Tự động nhận biết trạng thái màu nền sáng/tối của thanh Taskbar Windows để chọn màu chữ tương phản tối ưu (chữ tối khi nền sáng và chữ sáng khi nền tối), tránh tình trạng chìm màu chữ.
+
+5. **Tối ưu hóa độ trễ & Native Taskbar Docking:**
+   - Tinh chỉnh cơ chế luồng hiển thị (Fast-track latency optimization), loại bỏ độ trễ khi chuyển câu hát và neo (dock) chắc chắn vào Taskbar Windows.
+
+---
+
+## Giới thiệu tổng quan
+
+**AF Media Bar** là bộ điều khiển media hiện đại trên thanh tác vụ Windows 10/11. Ứng dụng đọc nội dung đang phát từ phiên media của hệ thống, giúp thông tin media, lời bài hát, điều khiển phát nhạc và chuyển thiết bị trở nên trực quan, dễ sử dụng hơn ngay trên desktop.
+
+## Xem trước trực tiếp
 
 <p align="center">
-  <img src="docs/assets/readme/展示.gif" width="80%" alt="AF Media Bar 实际运行演示">
+  <img src="docs/assets/readme/展示.gif" width="80%" alt="AF Media Bar chạy trên thanh tác vụ Windows với ảnh bìa, điều khiển phát nhạc và thông tin bài hát">
 </p>
 
-[观看 Bilibili 介绍视频](https://www.bilibili.com/video/BV17yhh6aEgK)
+[Xem video giới thiệu trên Bilibili](https://www.bilibili.com/video/BV17yhh6aEgK)
 
-## 下载安装
+## Tải về và khởi chạy
 
-前往 [GitHub Releases](https://github.com/Fervent-Tempo/AF-Media-Bar/releases)，选择一种方式：
+Truy cập [GitHub Releases](https://github.com/tienwopa/AF-Media-Bar/releases) (hoặc [Releases gốc](https://github.com/Fervent-Tempo/AF-Media-Bar/releases)) và chọn một gói:
 
-1. **安装程序（推荐）：** 下载 `AFMediaBar-Setup-vX.Y.Z-win-x64.exe`，按向导安装。
-2. **便携版：** 下载 `AFMediaBar-vX.Y.Z-win-x64.zip`，解压到可写目录，运行 `AFMediaBar.exe`。
+1. **Bộ cài đặt (khuyên dùng):** Tải `AFMediaBar-Setup-vX.Y.Z-win-x64.exe` và làm theo hướng dẫn cài đặt.
+2. **Bản portable:** Tải `AFMediaBar-vX.Y.Z-win-x64.zip`, giải nén vào thư mục có quyền ghi và chạy `AFMediaBar.exe`.
 
-**系统要求：** Windows 10 1809 或更新的 x64 系统，需要 Microsoft Edge WebView2 Runtime；缺失时先安装 Evergreen Runtime。发布包自带 .NET 运行时。
+**Yêu cầu hệ thống:** Windows 10 1809 trở lên, x64, cùng Microsoft Edge WebView2 Runtime. Nếu thiếu, hãy cài Evergreen Runtime. Các gói phát hành đã tích hợp .NET runtime.
 
+## Cập nhật và gỡ cài đặt
 
-## 更新与卸载
+- **Cập nhật:** Ứng dụng thông báo khi có phiên bản mới; bạn có thể kiểm tra trong trang Ứng dụng. Bản cài đặt hỗ trợ tải và cài cập nhật trong ứng dụng; bản portable cần thay thế tệp thủ công.
+- **Cài đặt:** Lưu tại `%LOCALAPPDATA%\AFMediaBar\settings.json`; có thể mở thư mục cài đặt từ trang Ứng dụng.
+- **Gỡ cài đặt:** Gỡ bản cài đặt qua mục Ứng dụng đã cài đặt của Windows hoặc menu Start. Với bản portable, xóa thư mục chương trình. Để xóa cả cài đặt và bộ nhớ đệm, xóa thêm `%LOCALAPPDATA%\AFMediaBar`.
 
-- **更新：** 发现新版本时会提示，可在「应用」页检查更新。安装版支持程序内下载与安装；便携版需手动替换程序文件。
-- **设置：** 保存在 `%LOCALAPPDATA%\AFMediaBar\settings.json`，可从「应用」页打开设置文件夹。
-- **卸载：** 安装版通过 Windows“已安装的应用”或开始菜单卸载；便携版直接删除程序目录。若要清除设置与缓存，再手动删除 `%LOCALAPPDATA%\AFMediaBar`。
+## Quyền riêng tư và bảo mật
 
-## 隐私与安全
+- Không có telemetry, quảng cáo hay tài khoản. Điều khiển media và âm lượng được xử lý trên máy.
+- Kiểm tra cập nhật và tìm lời bài hát trực tuyến sử dụng mạng. Tìm lời sử dụng tên bài hát và nghệ sĩ; có thể tắt các nguồn lời trong Cài đặt.
+- Ứng dụng chạy với quyền của người dùng hiện tại. Báo cáo vấn đề bảo mật riêng tư theo [SECURITY.md](SECURITY.md).
 
-- 不含遥测、广告或账号系统；媒体控制与音量操作在本机处理。
-- 更新检查与在线歌词检索会联网；歌词检索使用曲名、歌手等信息，可在设置中关闭歌词来源。
-- 程序以当前用户权限运行。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。
-
-## Star 历史
+## Lịch sử Star
 
 <a href="https://www.star-history.com/?repos=Fervent-Tempo%2FAF-Media-Bar&amp;type=date&amp;legend=top-left">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Fervent-Tempo/AF-Media-Bar&amp;type=date&amp;theme=dark&amp;legend=top-left">
     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Fervent-Tempo/AF-Media-Bar&amp;type=date&amp;legend=top-left">
-    <img src="https://api.star-history.com/chart?repos=Fervent-Tempo/AF-Media-Bar&amp;type=date&amp;legend=top-left" width="100%" alt="AF Media Bar 在 GitHub 上的 Star 数量历史">
+    <img src="https://api.star-history.com/chart?repos=Fervent-Tempo/AF-Media-Bar&amp;type=date&amp;legend=top-left" width="100%" alt="Lịch sử số Star của AF Media Bar trên GitHub">
   </picture>
 </a>
 
-### 项目活动
+### Hoạt động dự án
 
-![AF Media Bar 仓库活动与贡献统计](https://repobeats.axiom.co/api/embed/5c84aada847e73d1f944fc22151a821d0fb2a9a9.svg "Repobeats analytics image")
+![Thống kê hoạt động và đóng góp của kho AF Media Bar](https://repobeats.axiom.co/api/embed/5c84aada847e73d1f944fc22151a821d0fb2a9a9.svg "Repobeats analytics image")
 
-## 项目结构
+## Cấu trúc dự án
 
-应用源码位于 `src/`，测试位于 `tests/`，开发工具位于 `tools/`。完整目录与职责划分见 [架构文档](docs/architecture.md#仓库目录)，构建与测试方法见 [贡献指南](CONTRIBUTING.md#开发与验证)。
+Mã nguồn ứng dụng nằm trong `src/`, kiểm thử trong `tests/` và công cụ phát triển trong `tools/`. Xem [Tài liệu kiến trúc](docs/architecture.md#仓库目录) để biết cấu trúc thư mục và trách nhiệm, và [Hướng dẫn đóng góp](CONTRIBUTING.md#development-and-validation) để biết cách build và kiểm thử.
 
-## 参与贡献
+## Đóng góp
 
-参与贡献前请阅读 [贡献指南](CONTRIBUTING.md)，架构边界见 [架构文档](docs/architecture.md)。
+Đọc [Hướng dẫn đóng góp](CONTRIBUTING.md) trước khi đóng góp; xem [Tài liệu kiến trúc](docs/architecture.md) để biết ranh giới kiến trúc.
 
-报告问题时请附 Windows 版本、程序版本、播放器与复现步骤。版本记录见 [CHANGELOG.md](CHANGELOG.md)。
+Báo cáo lỗi nên kèm phiên bản Windows, phiên bản ứng dụng, trình phát và các bước tái hiện. Xem [CHANGELOG.en-US.md](CHANGELOG.en-US.md) để biết lịch sử phiên bản.
 
-## 本地化与翻译
+## Bản địa hóa và dịch thuật
 
-界面目前支持 **简体中文、繁體中文、English 和 Tiếng Việt**，可在「应用」页切换语言。README 提供中文、英文和越南文版本。
+Giao diện hiện hỗ trợ **简体中文, 繁體中文, English và Tiếng Việt**. Chọn ngôn ngữ trong trang Ứng dụng. README có phiên bản tiếng Trung, tiếng Anh và tiếng Việt.
 
-欢迎所有语言的翻译贡献，包括新增语言和修正已有译文，参与方式见 [翻译贡献指南](docs/localization.md)。发现错译、缺失或文字显示问题，或希望贡献新的语言，请提交 [翻译反馈](https://github.com/Fervent-Tempo/AF-Media-Bar/issues/new?template=localization.yml)。
+Chúng tôi hoan nghênh đóng góp bản dịch ở mọi ngôn ngữ, bao gồm ngôn ngữ mới và cải thiện bản dịch hiện có. Xem [Hướng dẫn đóng góp bản dịch](docs/localization.md#translation-guide). Dùng [Phản hồi bản dịch](https://github.com/Fervent-Tempo/AF-Media-Bar/issues/new?template=localization.yml) để báo cáo bản dịch sai, thiếu, chữ bị cắt hoặc đóng góp ngôn ngữ mới.
 
-## 致谢
+## Lời cảm ơn
 
-### 贡献者
+### Người đóng góp
 
-感谢所有参与贡献的开发者。
+Cảm ơn tất cả các nhà phát triển đã đóng góp cho AF Media Bar.
 
-[![AF Media Bar 贡献者](https://contrib.nn.ci/api?repo=Fervent-Tempo/AF-Media-Bar&cols=12&radius=24&no_bot=true)](https://github.com/Fervent-Tempo/AF-Media-Bar/graphs/contributors)
+[![Người đóng góp cho AF Media Bar](https://contrib.nn.ci/api?repo=Fervent-Tempo/AF-Media-Bar&cols=12&radius=24&no_bot=true)](https://github.com/Fervent-Tempo/AF-Media-Bar/graphs/contributors)
 
-### 开源项目
+### Dự án mã nguồn mở
 
-感谢以下开源项目：
+Cảm ơn các dự án mã nguồn mở sau:
 
-- [FluentFlyout](https://github.com/unchihugo/FluentFlyout)：简单、现代的 Windows 音量控制弹窗软件。
-- [Lyricify-Lyrics-Helper](https://github.com/WXRIW/Lyricify-Lyrics-Helper)：Lyricify 歌词库，提供歌词解析、生成、搜索、解密和优化处理。
-- [TaskbarLyrics](https://github.com/ANYNC/TaskbarLyrics)：Windows 任务栏歌词工具。
-- [NAudio](https://github.com/naudio/NAudio)：Windows 音频采集与处理。
-- [WPF UI](https://github.com/lepoco/wpfui)：Fluent 风格的 WPF 控件。
+- [FluentFlyout](https://github.com/unchihugo/FluentFlyout): Bảng điều khiển âm lượng Windows đơn giản và hiện đại.
+- [Lyricify-Lyrics-Helper](https://github.com/WXRIW/Lyricify-Lyrics-Helper): Thư viện lời bài hát Lyricify để phân tích, tạo, tìm kiếm, giải mã và xử lý lời.
+- [TaskbarLyrics](https://github.com/ANYNC/TaskbarLyrics): Công cụ lời bài hát trên thanh tác vụ Windows.
+- [NAudio](https://github.com/naudio/NAudio): Thu và xử lý âm thanh Windows.
+- [WPF UI](https://github.com/lepoco/wpfui): Điều khiển WPF theo phong cách Fluent.
 
-## 赞助
+## Tài trợ
 
 <div align="center">
 
-如果 AF Media Bar 对你有帮助，可以给项目一个 Star❤️。
-<img src="https://whale-star.whale-star.workers.dev/?repo=Fervent-Tempo%2FAF-Media-Bar&pack=default" alt="star 大肥鱼" width="600" />
+Nếu AF Media Bar hữu ích với bạn, hãy tặng dự án một Star ❤️
+
 </div>
 
-请作者喝杯咖啡。**大于 10 元的赞助可以进入赞助者名单，请在备注中留下 id。**
+Ủng hộ tác giả gốc một tách cà phê:
 
 <div align="center">
 
-| 微信 | 支付宝 |
+| WeChat | Alipay |
 | :---: | :---: |
-| <img src="src/AFMediaBar/Assets/Sponsor/wechat-pay.png" alt="微信收款码" width="220"> | <img src="src/AFMediaBar/Assets/Sponsor/alipay-pay.png" alt="支付宝收款码" width="220"> |
+| <img src="src/AFMediaBar/Assets/Sponsor/wechat-pay.png" alt="Mã thanh toán WeChat" width="220"> | <img src="src/AFMediaBar/Assets/Sponsor/alipay-pay.png" alt="Mã thanh toán Alipay" width="220"> |
 
 </div>
