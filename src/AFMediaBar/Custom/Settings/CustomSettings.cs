@@ -5,24 +5,40 @@ using System.Text.Json.Serialization;
 namespace AFMediaBar.Custom.Settings;
 
 /// <summary>
-/// Chế độ hiển thị vị trí của Dual Overlay.
+/// Chế độ nội dung lời hiển thị phụ.
 /// </summary>
-public enum DualOverlayPlacementMode
+public enum SecondaryLyricsContentMode
 {
-    /// <summary>Phía đối diện trên cùng thanh Taskbar.</summary>
-    TaskbarOpposite = 0,
+    /// <summary>Hiển thị song song cả Lời dịch và Pinyin/Phiên âm (nếu có).</summary>
+    Both = 0,
 
-    /// <summary>Đặt trên màn hình thứ 2 (Secondary Monitor).</summary>
-    SecondaryMonitor = 1,
+    /// <summary>Chỉ hiển thị Lời dịch Tiếng Việt.</summary>
+    TranslationOnly = 1,
 
-    /// <summary>Ghim nổi tự do trên Desktop (kéo thả).</summary>
-    Floating = 2
+    /// <summary>Chỉ hiển thị Pinyin / Phiên âm.</summary>
+    RomanizationOnly = 2
 }
 
 /// <summary>
-/// Cấu hình tùy biến dành riêng cho tính năng Song ngữ & Dual Overlay.
-/// Được lưu độc lập tại %LOCALAPPDATA%\AFMediaBar\custom_settings.json để không ảnh hưởng
-/// đến hệ thống settings gốc của tác giả (tránh vỡ settings-contracts.json).
+/// Chiến lược phân bổ vị trí hiển thị song song.
+/// </summary>
+public enum DualLyricsPlacementStrategy
+{
+    /// <summary>
+    /// Tự động tách biệt: Lời dịch ở Taskbar chính bên đối diện, Pinyin ở Taskbar Màn hình 2.
+    /// Nếu máy chỉ có 1 màn hình: Tự động gộp 2 dòng tại Taskbar chính.
+    /// </summary>
+    AutoSplit = 0,
+
+    /// <summary>Luôn gộp 2 dòng (dịch + pinyin) tại phía đối diện của Taskbar chính.</summary>
+    CombinedOppositeTaskbar = 1,
+
+    /// <summary>Luôn gộp 2 dòng tại Taskbar Màn hình thứ 2.</summary>
+    CombinedSecondaryMonitor = 2
+}
+
+/// <summary>
+/// Cấu hình tùy biến dành riêng cho tính năng Song ngữ & Dual Taskbar Lyrics.
 /// </summary>
 public sealed class CustomSettings
 {
@@ -32,26 +48,23 @@ public sealed class CustomSettings
     /// <summary>Mã ngôn ngữ đích cần dịch sang (mặc định: "vi" - Tiếng Việt).</summary>
     public string TargetLanguage { get; set; } = "vi";
 
-    /// <summary>Bật/tắt cửa sổ Dual Overlay độc lập.</summary>
-    public bool EnableDualOverlay { get; set; } = true;
+    /// <summary>Bật/tắt thanh Taskbar phụ hiển thị lời dịch / pinyin.</summary>
+    public bool EnableDualTaskbarLyrics { get; set; } = true;
 
-    /// <summary>Vị trí đặt cửa sổ Dual Overlay.</summary>
-    public DualOverlayPlacementMode PlacementMode { get; set; } = DualOverlayPlacementMode.TaskbarOpposite;
+    /// <summary>Chế độ nội dung lời bài hát hiển thị.</summary>
+    public SecondaryLyricsContentMode ContentMode { get; set; } = SecondaryLyricsContentMode.Both;
 
-    /// <summary>Cỡ chữ hiển thị trên Dual Overlay (DIP).</summary>
+    /// <summary>Chiến lược phân bổ vị trí.</summary>
+    public DualLyricsPlacementStrategy PlacementStrategy { get; set; } = DualLyricsPlacementStrategy.AutoSplit;
+
+    /// <summary>Tự động ẩn bản dịch khi lời bài hát gốc đã là Tiếng Việt.</summary>
+    public bool AutoSkipVietnamese { get; set; } = true;
+
+    /// <summary>Cỡ chữ hiển thị (DIP).</summary>
     public double FontSize { get; set; } = 12.0;
 
-    /// <summary>Độ mờ đục của cửa sổ Dual Overlay (0.2 -> 1.0).</summary>
+    /// <summary>Độ mờ đục của chữ (0.2 -> 1.0).</summary>
     public double Opacity { get; set; } = 0.95;
-
-    /// <summary>Tọa độ X khi ở chế độ Floating.</summary>
-    public double FloatingPositionX { get; set; } = 200.0;
-
-    /// <summary>Tọa độ Y khi ở chế độ Floating.</summary>
-    public double FloatingPositionY { get; set; } = 200.0;
-
-    /// <summary>Chỉ hiển thị dòng dịch trên Dual Overlay (true) hoặc hiển thị cả 2 dòng (false).</summary>
-    public bool DualOverlayOnlyShowsTranslation { get; set; } = true;
 }
 
 /// <summary>
@@ -103,13 +116,12 @@ public sealed class CustomSettingsManager
             System.Diagnostics.Debug.WriteLine($"[CustomSettings] Loi doc settings: {ex.Message}");
         }
 
-        // Neu chua co file hoac loi, tao file mac dinh
         Current = new CustomSettings();
         SaveSettings();
     }
 
     /// <summary>
-    /// Ghi cấu hình xuống ổ đĩa bất đồng bộ hoặc đồng bộ an toàn.
+    /// Ghi cấu hình xuống ổ đĩa an toàn.
     /// </summary>
     public void SaveSettings()
     {

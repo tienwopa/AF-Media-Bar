@@ -1,0 +1,55 @@
+<Window x:Class="AFMediaBar.Custom.DualOverlay.DualTaskbarPrimaryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="DualTaskbarPrimaryWindow"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        AllowsTransparency="True"
+        Background="Transparent"
+        RenderOptions.ClearTypeHint="Enabled"
+        TextOptions.TextRenderingMode="ClearType"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Visibility="Collapsed">
+
+    <Grid x:Name="RootLayout" Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,12,0">
+        <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Right">
+            
+            <!-- Dòng 1: Lời dịch Tiếng Việt (hoặc Pinyin nếu chỉ bật Pinyin) -->
+            <TextBlock x:Name="PrimaryLineText"
+                       Text=""
+                       FontSize="11.5"
+                       FontWeight="SemiBold"
+                       Foreground="#F2FFFFFF"
+                       FontFamily="Segoe UI, Microsoft YaHei, Aptos"
+                       TextAlignment="Right"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="320">
+                <TextBlock.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.6" />
+                </TextBlock.Effect>
+            </TextBlock>
+
+            <!-- Dòng 2: Pinyin / Phiên âm (Khi hiển thị gộp 2 dòng) -->
+            <TextBlock x:Name="SecondaryLineText"
+                       Text=""
+                       FontSize="10"
+                       Foreground="#B3FFFFFF"
+                       FontFamily="Segoe UI, Microsoft YaHei, Aptos"
+                       TextAlignment="Right"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="320"
+                       Margin="0,1,0,0"
+                       Visibility="Collapsed">
+                <TextBlock.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
+                </TextBlock.Effect>
+            </TextBlock>
+        </StackPanel>
+    </Grid>
+</Window>

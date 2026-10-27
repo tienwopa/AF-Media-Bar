@@ -7,14 +7,9 @@ namespace AFMediaBar.Custom;
 
 /// <summary>
 /// Điểm neo cấu hình mở rộng (Custom Extension Bootstrap).
-/// Đóng gói 100% việc đăng ký DI và khởi tạo của toàn bộ tính năng mới vào 2 extension method.
-/// Giúp file App.xaml.cs của tác giả chỉ cần chèn duy nhất 1-2 dòng, tránh xung đột khi merge.
 /// </summary>
 public static class CustomFeatureBootstrap
 {
-    /// <summary>
-    /// Đăng ký toàn bộ Service, ViewModel, Window của tính năng Song ngữ & Dual Overlay vào DI Container.
-    /// </summary>
     public static IServiceCollection AddCustomDualOverlayFeature(this IServiceCollection services)
     {
         // 1. Cấu hình
@@ -25,23 +20,18 @@ public static class CustomFeatureBootstrap
         services.AddSingleton<ITranslationService, GoogleTranslateService>();
         services.AddSingleton<BilingualLyricsManager>();
 
-        // 3. Dual Overlay
-        services.AddSingleton<DualOverlayPlacementCoordinator>();
-        services.AddSingleton<DualOverlayViewModel>();
-        services.AddSingleton<DualOverlayWindow>();
+        // 3. Dual Taskbar Windows
+        services.AddSingleton<DualTaskbarPrimaryWindow>();
+        services.AddSingleton<DualTaskbarSecondaryWindow>();
         services.AddSingleton<DualOverlayCoordinator>();
 
         return services;
     }
 
-    /// <summary>
-    /// Khởi động điều phối viên Dual Overlay khi ứng dụng bắt đầu chạy.
-    /// </summary>
     public static void UseCustomDualOverlayFeature(this IServiceProvider serviceProvider)
     {
         try
         {
-            // Resolve DualOverlayCoordinator để kích hoạt lắng nghe và khởi tạo cửa sổ
             _ = serviceProvider.GetRequiredService<DualOverlayCoordinator>();
         }
         catch (Exception ex)

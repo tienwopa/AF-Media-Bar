@@ -1,4 +1,5 @@
 using System.Windows.Threading;
+using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
@@ -7,34 +8,34 @@ using AFMediaBar.Custom.Translation;
 namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
-/// Điều phối chính cho tính năng Dual Overlay và Song ngữ.
-/// Lắng nghe MediaSessionService và BilingualLyricsManager để đồng bộ lời dịch theo thời gian thực.
+/// Điều phối logic hiển thị song ngữ & Dual Taskbar Native.
+/// Tự động tách hoặc gộp lời dịch tiếng Việt và Pinyin trên thanh Taskbar theo cấu hình và số lượng màn hình.
 /// </summary>
 public sealed class DualOverlayCoordinator : IDisposable
 {
     private readonly MediaSessionService _mediaSessionService;
     private readonly BilingualLyricsManager _bilingualLyricsManager;
-    private readonly DualOverlayViewModel _overlayViewModel;
-    private readonly DualOverlayWindow _overlayWindow;
+    private readonly DualTaskbarPrimaryWindow _primaryWindow;
+    private readonly DualTaskbarSecondaryWindow _secondaryWindow;
     private readonly CustomSettingsManager _settingsManager;
 
     private LyricDocument? _activeDocument;
+    private bool _isCurrentTrackVietnamese;
     private readonly DispatcherTimer _syncTimer;
 
     public DualOverlayCoordinator(
         MediaSessionService mediaSessionService,
         BilingualLyricsManager bilingualLyricsManager,
-        DualOverlayViewModel overlayViewModel,
-        DualOverlayWindow overlayWindow,
+        DualTaskbarPrimaryWindow primaryWindow,
+        DualTaskbarSecondaryWindow secondaryWindow,
         CustomSettingsManager settingsManager)
     {
         _mediaSessionService = mediaSessionService;
         _bilingualLyricsManager = bilingualLyricsManager;
-        _overlayViewModel = overlayViewModel;
-        _overlayWindow = overlayWindow;
+        _primaryWindow = primaryWindow;
+        _secondaryWindow = secondaryWindow;
         _settingsManager = settingsManager;
 
-        // Timer dong bo vi tri mili-giay voi do tre cuc thap
         _syncTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromMilliseconds(100)
@@ -44,12 +45,9 @@ public sealed class DualOverlayCoordinator : IDisposable
         _mediaSessionService.SnapshotChanged += MediaSessionService_SnapshotChanged;
         _bilingualLyricsManager.BilingualLyricsReady += BilingualLyricsManager_BilingualLyricsReady;
 
-        // Hien thi cua so
-        if (_settingsManager.Current.EnableDualOverlay)
-        {
-            _overlayWindow.Show();
-            _syncTimer.Start();
-        }
+        _primaryWindow.Show();
+        _secondaryWindow.Show();
+        _syncTimer.Start();
     }
 
     private void MediaSessionService_SnapshotChanged(object? sender, MediaSnapshot snapshot)
@@ -57,36 +55,36 @@ public sealed class DualOverlayCoordinator : IDisposable
         if (!snapshot.IsConnected || !snapshot.IsPlaying || snapshot.Lyrics == null || snapshot.Lyrics.Document.Lines.Count == 0)
         {
             _activeDocument = null;
-            _overlayViewModel.Hide();
+            _isCurrentTrackVietnamese = false;
+            HideAllWindows();
             return;
         }
 
-        // Gui document goc sang BilingualLyricsManager de bat dau dich ngam neu can
         var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
         _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
 
-        // Tam thoi dung document goc neu chua co ban dich
         _activeDocument ??= snapshot.Lyrics.Document;
     }
 
-    private void BilingualLyricsManager_BilingualLyricsReady(LyricDocument enrichedDoc)
+    private void BilingualLyricsManager_BilingualLyricsReady(LyricDocument enrichedDoc, bool isVietnamese)
     {
-        // Khi ban dich song ngu da san sang, cap nhat document hoat dong
         _activeDocument = enrichedDoc;
+        _isCurrentTrackVietnamese = isVietnamese;
     }
 
     private void SyncTimer_Tick(object? sender, EventArgs e)
     {
-        if (!_settingsManager.Current.EnableDualOverlay)
+        var settings = _settingsManager.Current;
+        if (!settings.EnableDualTaskbarLyrics)
         {
-            _overlayViewModel.Hide();
+            HideAllWindows();
             return;
         }
 
         var snapshot = _mediaSessionService.CurrentSnapshot;
         if (snapshot == null || !snapshot.IsConnected || !snapshot.IsPlaying || _activeDocument == null)
         {
-            _overlayViewModel.Hide();
+            HideAllWindows();
             return;
         }
 
@@ -94,10 +92,10 @@ public sealed class DualOverlayCoordinator : IDisposable
         var lines = _activeDocument.Lines;
         if (lines.Count == 0)
         {
+            HideAllWindows();
             return;
         }
 
-        // Tim dong lyric phu hop voi thoi diem hien tai
         LyricLine? matchedLine = null;
         for (int i = 0; i < lines.Count; i++)
         {
@@ -109,25 +107,98 @@ public sealed class DualOverlayCoordinator : IDisposable
             }
             if (currentSeconds < line.Start)
             {
-                // Neu chua toi dong tiep theo, giu dong truoc do
-                if (i > 0)
-                {
-                    matchedLine = lines[i - 1];
-                }
+                if (i > 0) matchedLine = lines[i - 1];
                 break;
             }
         }
-
         matchedLine ??= (currentSeconds >= lines[^1].Start ? lines[^1] : null);
 
-        if (matchedLine != null)
+        if (matchedLine == null)
         {
-            _overlayViewModel.UpdateLyric(matchedLine.Text, matchedLine.Translation);
+            HideAllWindows();
+            return;
+        }
+
+        // 1. Trich xuat ban dich va pinyin
+        string? translation = matchedLine.Translation;
+        string? pinyin = matchedLine.Romanization;
+
+        // Neu bai hat goc da la tieng Viet va co bat AutoSkipVietnamese -> An ban dich
+        if (_isCurrentTrackVietnamese && settings.AutoSkipVietnamese)
+        {
+            translation = null;
+        }
+
+        // 2. Kiem tra xem may co man hinh thu 2 khong
+        bool hasSecondaryScreen = NativeMethods.FindWindow("Shell_SecondaryTrayWnd", null) != IntPtr.Zero;
+
+        // 3. Ap dung che do hien thi
+        switch (settings.ContentMode)
+        {
+            case SecondaryLyricsContentMode.TranslationOnly:
+                _primaryWindow.UpdateContent(translation ?? string.Empty, null);
+                _secondaryWindow.HideContent();
+                break;
+
+            case SecondaryLyricsContentMode.RomanizationOnly:
+                _primaryWindow.UpdateContent(pinyin ?? string.Empty, null);
+                _secondaryWindow.HideContent();
+                break;
+
+            case SecondaryLyricsContentMode.Both:
+            default:
+                DispatchBoth(translation, pinyin, hasSecondaryScreen, settings.PlacementStrategy);
+                break;
+        }
+    }
+
+    private void DispatchBoth(
+        string? translation,
+        string? pinyin,
+        bool hasSecondaryScreen,
+        DualLyricsPlacementStrategy strategy)
+    {
+        bool hasTrans = !string.IsNullOrWhiteSpace(translation);
+        bool hasPin = !string.IsNullOrWhiteSpace(pinyin);
+
+        // Truong hop chi co 1 trong 2 noi dung
+        if (hasTrans && !hasPin)
+        {
+            _primaryWindow.UpdateContent(translation!, null);
+            _secondaryWindow.HideContent();
+            return;
+        }
+        if (!hasTrans && hasPin)
+        {
+            _primaryWindow.UpdateContent(pinyin!, null);
+            _secondaryWindow.HideContent();
+            return;
+        }
+        if (!hasTrans && !hasPin)
+        {
+            HideAllWindows();
+            return;
+        }
+
+        // Truong hop co ca ban dich va pinyin:
+        if (strategy == DualLyricsPlacementStrategy.AutoSplit && hasSecondaryScreen)
+        {
+            // TACH: Taskbar chinh hien loi dich, Taskbar man hinh 2 hien Pinyin
+            _primaryWindow.UpdateContent(translation!, null);
+            _secondaryWindow.UpdateContent(pinyin!);
         }
         else
         {
-            _overlayViewModel.Hide();
+            // GOP LAI tai Taskbar chinh (Dòng trên: Lời dịch, Dòng dưới: Pinyin)
+            _primaryWindow.UpdateContent(translation!, pinyin);
+            _secondaryWindow.HideContent();
         }
+    }
+
+    private void HideAllWindows()
+    {
+        _primaryWindow.HideContent();
+        _secondaryWindow.HideContent();
     }
 
     public void Dispose()
@@ -135,6 +206,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         _syncTimer.Stop();
         _mediaSessionService.SnapshotChanged -= MediaSessionService_SnapshotChanged;
         _bilingualLyricsManager.BilingualLyricsReady -= BilingualLyricsManager_BilingualLyricsReady;
-        _overlayWindow.Close();
+        _primaryWindow.Close();
+        _secondaryWindow.Close();
     }
 }

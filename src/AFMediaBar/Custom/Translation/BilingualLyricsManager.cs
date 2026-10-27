@@ -1,23 +1,24 @@
+using System.Text.RegularExpressions;
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Custom.Settings;
 
 namespace AFMediaBar.Custom.Translation;
 
 /// <summary>
-/// Quản lý việc làm giàu dữ liệu lời bài hát với bản dịch song ngữ.
-/// Chạy nền và không bao giờ gây giật lag luồng UI chính.
+/// Quản lý việc dịch và xử lý song ngữ, tích hợp bộ nhận diện Tiếng Việt thông minh.
 /// </summary>
 public sealed class BilingualLyricsManager
 {
+    private static readonly Regex VietnameseCharPattern = new(
+        @"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]",
+        RegexOptions.Compiled);
+
     private readonly ITranslationService _translationService;
     private readonly CustomSettingsManager _settingsManager;
     private CancellationTokenSource? _activeTranslationCts;
     private string _lastProcessedTrack = string.Empty;
 
-    /// <summary>
-    /// Bắn ra khi lời bài hát song ngữ đã được dịch xong và sẵn sàng.
-    /// </summary>
-    public event Action<LyricDocument>? BilingualLyricsReady;
+    public event Action<LyricDocument, bool>? BilingualLyricsReady;
 
     public BilingualLyricsManager(
         ITranslationService translationService,
@@ -25,6 +26,32 @@ public sealed class BilingualLyricsManager
     {
         _translationService = translationService;
         _settingsManager = settingsManager;
+    }
+
+    /// <summary>
+    /// Nhận diện xem nội dung bài hát có phải là Tiếng Việt hay không.
+    /// </summary>
+    public static bool IsVietnameseContent(IReadOnlyList<LyricLine> lines)
+    {
+        if (lines.Count == 0)
+        {
+            return false;
+        }
+
+        int vietnameseMatchCount = 0;
+        int sampleSize = Math.Min(lines.Count, 25);
+
+        for (int i = 0; i < sampleSize; i++)
+        {
+            var text = lines[i].Text;
+            if (VietnameseCharPattern.IsMatch(text))
+            {
+                vietnameseMatchCount++;
+            }
+        }
+
+        // Neu it nhat 3 dong hoac > 20% so dong lay mau co ky tu tieng Viet
+        return vietnameseMatchCount >= 3 || (sampleSize > 0 && ((double)vietnameseMatchCount / sampleSize) >= 0.2);
     }
 
     /// <summary>
@@ -48,6 +75,15 @@ public sealed class BilingualLyricsManager
         }
 
         _lastProcessedTrack = trackKey;
+
+        // Kiem tra xem bai hat co phai goc la tieng Viet khong
+        bool isVietnamese = IsVietnameseContent(document.Lines);
+        if (isVietnamese && _settingsManager.Current.AutoSkipVietnamese)
+        {
+            // Bai hat goc da la tieng Viet -> Khong can dich, ban document goc voi co isVietnamese = true
+            BilingualLyricsReady?.Invoke(document, true);
+            return;
+        }
 
         // Huy tac vu dich cua bai truoc neu van chua chay xong
         _activeTranslationCts?.Cancel();
@@ -96,7 +132,7 @@ public sealed class BilingualLyricsManager
                     document.SyncType,
                     document.SourceFormat);
 
-                BilingualLyricsReady?.Invoke(enrichedDoc);
+                BilingualLyricsReady?.Invoke(enrichedDoc, false);
             }
             catch (OperationCanceledException)
             {
