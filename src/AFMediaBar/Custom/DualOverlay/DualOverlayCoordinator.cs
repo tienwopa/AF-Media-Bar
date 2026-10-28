@@ -81,6 +81,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         {
             _activeDocument = null;
             _isCurrentTrackVietnamese = false;
+            BilingualLyricsManager.ResetActiveTrack();
             HideAllWindows();
             return;
         }

@@ -30,6 +30,14 @@ public sealed class BilingualLyricsManager
     public static BilingualLyricsManager? Instance { get; private set; }
     public static LyricDocument? ActiveEnrichedDocument { get; private set; }
     public static bool ActiveIsVietnamese { get; private set; }
+    public static string ActiveTrackKey { get; private set; } = string.Empty;
+
+    public static void ResetActiveTrack()
+    {
+        ActiveEnrichedDocument = null;
+        ActiveTrackKey = string.Empty;
+        ActiveIsVietnamese = false;
+    }
     public static event Action<LyricDocument, bool>? EnrichedLyricsUpdated;
 
 
@@ -83,6 +91,7 @@ public sealed class BilingualLyricsManager
         if (_documentCache.TryGetValue(trackKey, out var cached))
         {
             _lastProcessedTrack = trackKey;
+            ActiveTrackKey = trackKey;
             ActiveEnrichedDocument = cached.doc;
             ActiveIsVietnamese = cached.isVietnamese;
             BilingualLyricsReady?.Invoke(cached.doc, cached.isVietnamese);
@@ -140,6 +149,7 @@ public sealed class BilingualLyricsManager
         bool isVietnamese = IsVietnameseContent(document.Lines);
         _documentCache[trackKey] = (immediateDoc, isVietnamese);
 
+        ActiveTrackKey = trackKey;
         ActiveEnrichedDocument = immediateDoc;
         ActiveIsVietnamese = isVietnamese;
         if (isVietnamese && _settingsManager.Current.AutoSkipVietnamese)
@@ -204,6 +214,7 @@ public sealed class BilingualLyricsManager
 
                 var fullDoc = new LyricDocument(fullyEnrichedLines, document.SyncType, document.SourceFormat);
                 _documentCache[trackKey] = (fullDoc, false);
+                ActiveTrackKey = trackKey;
                 ActiveEnrichedDocument = fullDoc;
                 ActiveIsVietnamese = false;
                 BilingualLyricsReady?.Invoke(fullDoc, false);
