@@ -460,15 +460,16 @@
                                 </components:SettingsRow>
 
                                 <components:SettingsRow
-                                    Description="Tùy chọn hiển thị câu tiếp theo thay vì để trống khi bài hát vốn là Tiếng Việt"
+                                    Description="Tùy chọn hiển thị lời gốc và câu kế tiếp khi bài hát là Tiếng Việt"
                                     Icon="{ui:SymbolIcon FastForward24}"
                                     IsNested="True"
-                                    Title="Khi bài hát là Tiếng Việt (Taskbar phụ)">
+                                    Title="Khi bài hát là Tiếng Việt">
                                     <ComboBox x:Name="CustomVietnameseSecondaryCombo"
                                               SelectionChanged="CustomVietnameseSecondaryCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Hiển thị câu kế tiếp (Mặc định)" Tag="0" />
-                                        <ComboBoxItem Content="Để trống (Ẩn)" Tag="1" />
+                                              Width="340">
+                                        <ComboBoxItem Content="Tách ra 2 bên (Media Bar: Lời gốc | Taskbar phụ: Câu kế tiếp)" Tag="0" />
+                                        <ComboBoxItem Content="Cùng 1 vị trí chính (Media Bar: Lời gốc + Câu kế tiếp | Taskbar phụ: Ẩn)" Tag="1" />
+                                        <ComboBoxItem Content="Chỉ hiển thị lời gốc trên Media Bar (Taskbar phụ: Để trống)" Tag="2" />
                                     </ComboBox>
                                 </components:SettingsRow>
 

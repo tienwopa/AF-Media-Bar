@@ -21,9 +21,9 @@ public static class SmallTaskbarPresentationPolicy
             TranslationMode = false
         } : frame;
 
-    /// <summary>主文字先占用可用横轴，只有副信息放不下时才将其收起。</summary>
+    /// <summary>主文字先占用可用横轴，只有副信息放不下时才将其收起。当 forceKeepSecondary 为 true 时强制保留副信息并自适应缩放。</summary>
     public static TaskbarTextBudget Resolve(double crossAxisDip, bool vertical, double primaryFontSize,
-        double secondaryFontSize, double gapDip)
+        double secondaryFontSize, double gapDip, bool forceKeepSecondary = false)
     {
         var cross = double.IsFinite(crossAxisDip) ? Math.Max(1, crossAxisDip) : 44;
         var primary = double.IsFinite(primaryFontSize) ? Math.Max(1, primaryFontSize) : 14;
@@ -32,9 +32,26 @@ public static class SmallTaskbarPresentationPolicy
         var padding = cross < CompactCrossAxisThresholdDip ? Math.Min(1, cross / 8) : 2;
         var available = Math.Max(1, cross - padding * 2);
         var lineHeight = vertical ? 1 : 1.25;
+
+        if (forceKeepSecondary)
+        {
+            var neededHeight = (primary + secondary) * lineHeight + gap;
+            double fontScale;
+            if (neededHeight > available)
+            {
+                var usableHeight = Math.Max(8, available - gap);
+                fontScale = Math.Clamp(usableHeight / ((primary + secondary) * lineHeight), 0.5, 1.0);
+            }
+            else
+            {
+                fontScale = 1.0;
+            }
+            return new(fontScale, padding, HideSecondary: false);
+        }
+
         var hideSecondary = (primary + secondary) * lineHeight + gap > available + .1;
-        var fontScale = Math.Min(1, available / (primary * lineHeight));
-        return new(fontScale, padding, hideSecondary);
+        var fontScaleSingle = Math.Min(1, available / (primary * lineHeight));
+        return new(fontScaleSingle, padding, hideSecondary);
     }
 }
 

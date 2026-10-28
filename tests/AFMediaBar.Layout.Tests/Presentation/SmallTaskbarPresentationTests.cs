@@ -39,4 +39,16 @@ public sealed class SmallTaskbarPresentationTests
         Assert.AreEqual("Translation", raw.CurrentTranslation);
         Assert.AreSame(raw, SmallTaskbarPresentationPolicy.Project(raw, false));
     }
+
+    [TestMethod]
+    public void ForceKeepSecondaryScalesFontAndKeepsBothLines()
+    {
+        var budget = SmallTaskbarPresentationPolicy.Resolve(36, false, 18, 18, 2, forceKeepSecondary: true);
+        Assert.IsFalse(budget.HideSecondary);
+        Assert.IsTrue(budget.FontScale < 1.0);
+        Assert.IsTrue((18 + 18) * 1.25 * budget.FontScale + 2 <= 36);
+
+        var singleBudget = SmallTaskbarPresentationPolicy.Resolve(36, false, 18, 18, 2, forceKeepSecondary: false);
+        Assert.AreEqual(1.0, singleBudget.FontScale);
+    }
 }

@@ -4,6 +4,8 @@ using AFMediaBar.Classes.Models.Layout;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Classes.Services.Lyrics;
 using AFMediaBar.Classes.Settings;
+using AFMediaBar.Custom.Settings;
+using AFMediaBar.Custom.Translation;
 
 namespace AFMediaBar.Components;
 
@@ -39,7 +41,31 @@ public partial class TaskBarMediaControl
             raw.IsVisible ? _naturalLyricSize : _naturalArtistSize;
         var gap = raw.IsVisible ? 2 + primary * PresentationSettings.LyricsLineGapPercent / 100 : 2;
         var cross = _isVertical ? MainBorder.Width : MainBorder.Height;
-        var budget = UsesAdaptiveTaskbarText ? SmallTaskbarPresentationPolicy.Resolve(cross, _isVertical, primary, secondary, gap)
+
+        var customSettings = CustomSettingsManager.Instance.Current;
+        bool isCustomTwoLines = customSettings.MediaBarPrimaryContent switch
+        {
+            MediaBarLyricsDisplayMode.OriginalAndRomanization => true,
+            MediaBarLyricsDisplayMode.OriginalAndTranslation => true,
+            MediaBarLyricsDisplayMode.OriginalAndNextLine => true,
+            _ => false
+        };
+
+        if (!isCustomTwoLines && customSettings.MediaBarPrimaryContent == MediaBarLyricsDisplayMode.Original)
+        {
+            if (BilingualLyricsManager.ActiveIsVietnamese && customSettings.VietnameseSecondaryMode == VietnameseSecondaryMode.CombinedOnMediaBar)
+            {
+                isCustomTwoLines = true;
+            }
+            else if (PresentationSettings.TwoLineLyricsEnabled)
+            {
+                isCustomTwoLines = true;
+            }
+        }
+
+        bool forceKeepSecondary = raw.IsVisible && (isCustomTwoLines || raw.TranslationMode || !string.IsNullOrWhiteSpace(raw.Next) || !string.IsNullOrWhiteSpace(raw.CurrentTranslation));
+
+        var budget = UsesAdaptiveTaskbarText ? SmallTaskbarPresentationPolicy.Resolve(cross, _isVertical, primary, secondary, gap, forceKeepSecondary)
             : new TaskbarTextBudget(1, 2, false);
         var changed = _textBudget != budget;
         _textBudget = budget;

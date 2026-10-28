@@ -392,12 +392,36 @@ public sealed class DualOverlayCoordinator : IDisposable
             }
         }
 
-        // 1. Phân bổ cho Primary Taskbar Window
-        bool showTransOnPrimary = transPlacement == LyricElementPlacement.PrimaryTaskbar ||
-                                  transPlacement == LyricElementPlacement.BothScreens;
+        var mediaBarMode = settings.MediaBarPrimaryContent;
 
-        bool showPinyinOnPrimary = pinyinPlacement == LyricElementPlacement.PrimaryTaskbar ||
-                                   pinyinPlacement == LyricElementPlacement.BothScreens;
+        // Khử trùng lặp nội dung: Nếu Media Bar đã hiển thị thành phần nào thì Taskbar phụ không lặp lại thành phần đó
+        bool allowNextLineOnSecondary = true;
+        bool allowTransOnSecondary = true;
+        bool allowPinyinOnSecondary = true;
+
+        switch (mediaBarMode)
+        {
+            case MediaBarLyricsDisplayMode.OriginalAndNextLine:
+                allowNextLineOnSecondary = false;
+                break;
+            case MediaBarLyricsDisplayMode.OriginalAndTranslation:
+            case MediaBarLyricsDisplayMode.Translation:
+                allowTransOnSecondary = false;
+                break;
+            case MediaBarLyricsDisplayMode.OriginalAndRomanization:
+            case MediaBarLyricsDisplayMode.Romanization:
+                allowPinyinOnSecondary = false;
+                break;
+        }
+
+        // 1. Phân bổ cho Primary Taskbar Window
+        bool showTransOnPrimary = allowTransOnSecondary &&
+                                  (transPlacement == LyricElementPlacement.PrimaryTaskbar ||
+                                   transPlacement == LyricElementPlacement.BothScreens);
+
+        bool showPinyinOnPrimary = allowPinyinOnSecondary &&
+                                   (pinyinPlacement == LyricElementPlacement.PrimaryTaskbar ||
+                                    pinyinPlacement == LyricElementPlacement.BothScreens);
 
         string? primaryLine1 = null;
         string? primaryLine2 = null;
@@ -407,8 +431,11 @@ public sealed class DualOverlayCoordinator : IDisposable
 
         if (_isCurrentTrackVietnamese)
         {
-            // Bài hát Tiếng Việt: Mặc định hiển thị câu kế tiếp (thuần text)
-            if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
+            // Bài hát Tiếng Việt:
+            // Chỉ hiển thị câu kế tiếp ở Taskbar phụ khi chọn chế độ SeparateSides (Tách ra 2 bên) VÀ Media Bar không hiển thị câu kế tiếp
+            if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.SeparateSides &&
+                allowNextLineOnSecondary &&
+                !string.IsNullOrWhiteSpace(nextLineText))
             {
                 primaryLine1 = nextLineText;
                 primaryLine2 = null;
@@ -420,7 +447,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         else
         {
             // Bài hát Nước ngoài
-            if (settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
+            if (allowNextLineOnSecondary && settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
             {
                 primaryLine1 = nextLineText;
                 primaryProgress1 = 1.0;
@@ -478,6 +505,12 @@ public sealed class DualOverlayCoordinator : IDisposable
                     primaryProgress1 = pinyinProgress;
                     isPrimaryPinyin = true;
                 }
+                else if (allowNextLineOnSecondary && !string.IsNullOrWhiteSpace(nextLineText))
+                {
+                    primaryLine1 = nextLineText;
+                    primaryProgress1 = 1.0;
+                    isPrimaryPinyin = false;
+                }
             }
         }
 
@@ -497,11 +530,13 @@ public sealed class DualOverlayCoordinator : IDisposable
         // 2. Phân bổ cho Secondary Screen Window (nếu có màn hình 2)
         if (hasSecondaryScreen)
         {
-            bool showTransOnSec = transPlacement == LyricElementPlacement.SecondaryScreen ||
-                                  transPlacement == LyricElementPlacement.BothScreens;
+            bool showTransOnSec = allowTransOnSecondary &&
+                                  (transPlacement == LyricElementPlacement.SecondaryScreen ||
+                                   transPlacement == LyricElementPlacement.BothScreens);
 
-            bool showPinyinOnSec = pinyinPlacement == LyricElementPlacement.SecondaryScreen ||
-                                   pinyinPlacement == LyricElementPlacement.BothScreens;
+            bool showPinyinOnSec = allowPinyinOnSecondary &&
+                                   (pinyinPlacement == LyricElementPlacement.SecondaryScreen ||
+                                    pinyinPlacement == LyricElementPlacement.BothScreens);
 
             string? secLine1 = null;
             string? secLine2 = null;
@@ -511,7 +546,9 @@ public sealed class DualOverlayCoordinator : IDisposable
 
             if (_isCurrentTrackVietnamese)
             {
-                if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
+                if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.SeparateSides &&
+                    allowNextLineOnSecondary &&
+                    !string.IsNullOrWhiteSpace(nextLineText))
                 {
                     secLine1 = nextLineText;
                     secLine2 = null;
@@ -522,7 +559,7 @@ public sealed class DualOverlayCoordinator : IDisposable
             }
             else
             {
-                if (settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
+                if (allowNextLineOnSecondary && settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
                 {
                     secLine1 = nextLineText;
                     secProgress1 = 1.0;
@@ -579,6 +616,12 @@ public sealed class DualOverlayCoordinator : IDisposable
                         secLine1 = pinyin;
                         secProgress1 = pinyinProgress;
                         isSecPinyin = true;
+                    }
+                    else if (allowNextLineOnSecondary && !string.IsNullOrWhiteSpace(nextLineText))
+                    {
+                        secLine1 = nextLineText;
+                        secProgress1 = 1.0;
+                        isSecPinyin = false;
                     }
                 }
             }

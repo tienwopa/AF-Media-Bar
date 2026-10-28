@@ -108,43 +108,18 @@ public static class LyricsPresentationProjector
             nextPinyinText = PinyinGeneratorService.ToPinyin(nextLine.Text);
         }
 
-        switch (mediaBarMode)
+        bool isVietnamese = (isTrackMatching && BilingualLyricsManager.ActiveIsVietnamese) ||
+                            (snapshot.Lyrics?.Document.Lines != null && BilingualLyricsManager.IsVietnameseContent(snapshot.Lyrics.Document.Lines));
+
+        if (isVietnamese)
         {
-            case MediaBarLyricsDisplayMode.OriginalAndRomanization:
-                // 2 dòng song song: Lời gốc + Pinyin
-                primaryDisplayText = currentLine.Text;
-                if (!string.IsNullOrWhiteSpace(currentPinyinText))
-                {
-                    currentSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Romanization, currentPinyinText);
-                    translationMode = true;
-                    currentTranslation = currentPinyinText;
-                }
-                if (!string.IsNullOrWhiteSpace(nextPinyinText))
-                {
-                    nextSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Romanization, nextPinyinText);
-                    nextTranslation = nextPinyinText;
-                }
-                break;
-
-            case MediaBarLyricsDisplayMode.OriginalAndTranslation:
-                // 2 dòng song song: Lời gốc + Lời dịch Tiếng Việt
-                primaryDisplayText = currentLine.Text;
-                if (!string.IsNullOrWhiteSpace(currentTransText))
-                {
-                    currentSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Translation, currentTransText);
-                    translationMode = true;
-                    currentTranslation = currentTransText;
-                }
-                if (!string.IsNullOrWhiteSpace(nextTransText))
-                {
-                    nextSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Translation, nextTransText);
-                    nextTranslation = nextTransText;
-                }
-                break;
-
-            case MediaBarLyricsDisplayMode.OriginalAndNextLine:
-                // 2 dòng song song: Lời gốc + Câu kế tiếp
-                primaryDisplayText = currentLine.Text;
+            primaryDisplayText = currentLine.Text;
+            if (customSettings.VietnameseSecondaryMode == VietnameseSecondaryMode.CombinedOnMediaBar ||
+                (mediaBarMode == MediaBarLyricsDisplayMode.OriginalAndNextLine &&
+                 customSettings.VietnameseSecondaryMode != VietnameseSecondaryMode.SeparateSides &&
+                 customSettings.VietnameseSecondaryMode != VietnameseSecondaryMode.OriginalOnly))
+            {
+                // Hiển thị 2 dòng song song trên Media Bar: Lời gốc + Câu kế tiếp
                 if (nextLine != null && !string.IsNullOrWhiteSpace(nextLine.Text))
                 {
                     currentSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.NextLine, nextLine.Text);
@@ -155,61 +130,123 @@ public static class LyricsPresentationProjector
                     nextSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.NextLine, followingLine.Text);
                 }
                 translationMode = false;
-                break;
-
-            case MediaBarLyricsDisplayMode.Translation:
-                // 1 dòng duy nhất: Lời dịch Tiếng Việt
-                primaryDisplayText = !string.IsNullOrWhiteSpace(currentTransText) ? currentTransText : currentLine.Text;
+            }
+            else
+            {
+                // Tách ra 2 bên hoặc chỉ hiển thị lời gốc: Media Bar chỉ hiển thị 1 dòng lời gốc
                 currentSecondary = null;
-                translationMode = false;
+                nextSecondary = null;
                 visibleNext = string.Empty;
-                currentTranslation = string.Empty;
-                break;
-
-            case MediaBarLyricsDisplayMode.Romanization:
-                // 1 dòng duy nhất: Pinyin / Phiên âm
-                primaryDisplayText = !string.IsNullOrWhiteSpace(currentPinyinText) ? currentPinyinText : currentLine.Text;
-                currentSecondary = null;
                 translationMode = false;
-                visibleNext = string.Empty;
-                currentTranslation = string.Empty;
-                break;
+            }
+            currentTranslation = string.Empty;
+            nextTranslation = string.Empty;
+        }
+        else
+        {
+            switch (mediaBarMode)
+            {
+                case MediaBarLyricsDisplayMode.OriginalAndRomanization:
+                    // 2 dòng song song: Lời gốc + Pinyin
+                    primaryDisplayText = currentLine.Text;
+                    if (!string.IsNullOrWhiteSpace(currentPinyinText))
+                    {
+                        currentSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Romanization, currentPinyinText);
+                        translationMode = true;
+                        currentTranslation = currentPinyinText;
+                    }
+                    if (!string.IsNullOrWhiteSpace(nextPinyinText))
+                    {
+                        nextSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Romanization, nextPinyinText);
+                        nextTranslation = nextPinyinText;
+                    }
+                    break;
 
-            default: // MediaBarLyricsDisplayMode.Original
-                primaryDisplayText = currentLine.Text;
-                if (settings.TwoLineLyricsEnabled)
-                {
-                    currentSecondary = LyricsSecondaryLinePolicy.ResolveSelection(
-                        settings.LyricsSecondaryLine,
-                        nextLine?.Text,
-                        currentTransText,
-                        currentPinyinText);
-                    nextSecondary = nextLine is not null
-                        ? LyricsSecondaryLinePolicy.ResolveSelection(
-                            settings.LyricsSecondaryLine,
-                            followingLine?.Text,
-                            nextTransText,
-                            nextPinyinText)
-                        : null;
-                    translationMode = currentSecondary is { Mode: not LyricsSecondaryLineMode.NextLine };
-                    visibleNext = currentSecondary is { Mode: LyricsSecondaryLineMode.NextLine } selection
-                        ? selection.Text
-                        : string.Empty;
-                    currentTranslation = translationMode ? currentSecondary?.Text ?? string.Empty : string.Empty;
-                    nextTranslation = nextSecondary is { Mode: not LyricsSecondaryLineMode.NextLine }
-                        ? nextSecondary.Value.Text
-                        : string.Empty;
-                }
-                else
-                {
+                case MediaBarLyricsDisplayMode.OriginalAndTranslation:
+                    // 2 dòng song song: Lời gốc + Lời dịch Tiếng Việt
+                    primaryDisplayText = currentLine.Text;
+                    if (!string.IsNullOrWhiteSpace(currentTransText))
+                    {
+                        currentSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Translation, currentTransText);
+                        translationMode = true;
+                        currentTranslation = currentTransText;
+                    }
+                    if (!string.IsNullOrWhiteSpace(nextTransText))
+                    {
+                        nextSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.Translation, nextTransText);
+                        nextTranslation = nextTransText;
+                    }
+                    break;
+
+                case MediaBarLyricsDisplayMode.OriginalAndNextLine:
+                    // 2 dòng song song: Lời gốc + Câu kế tiếp
+                    primaryDisplayText = currentLine.Text;
+                    if (nextLine != null && !string.IsNullOrWhiteSpace(nextLine.Text))
+                    {
+                        currentSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.NextLine, nextLine.Text);
+                        visibleNext = nextLine.Text;
+                    }
+                    if (followingLine != null && !string.IsNullOrWhiteSpace(followingLine.Text))
+                    {
+                        nextSecondary = new LyricsSecondaryLineSelection(LyricsSecondaryLineMode.NextLine, followingLine.Text);
+                    }
+                    translationMode = false;
+                    break;
+
+                case MediaBarLyricsDisplayMode.Translation:
+                    // 1 dòng duy nhất: Lời dịch Tiếng Việt
+                    primaryDisplayText = !string.IsNullOrWhiteSpace(currentTransText) ? currentTransText : currentLine.Text;
                     currentSecondary = null;
                     translationMode = false;
                     visibleNext = string.Empty;
                     currentTranslation = string.Empty;
-                    nextSecondary = null;
-                    nextTranslation = string.Empty;
-                }
-                break;
+                    break;
+
+                case MediaBarLyricsDisplayMode.Romanization:
+                    // 1 dòng duy nhất: Pinyin / Phiên âm
+                    primaryDisplayText = !string.IsNullOrWhiteSpace(currentPinyinText) ? currentPinyinText : currentLine.Text;
+                    currentSecondary = null;
+                    translationMode = false;
+                    visibleNext = string.Empty;
+                    currentTranslation = string.Empty;
+                    break;
+
+                default: // MediaBarLyricsDisplayMode.Original
+                    primaryDisplayText = currentLine.Text;
+                    if (settings.TwoLineLyricsEnabled)
+                    {
+                        currentSecondary = LyricsSecondaryLinePolicy.ResolveSelection(
+                            settings.LyricsSecondaryLine,
+                            nextLine?.Text,
+                            currentTransText,
+                            currentPinyinText);
+                        nextSecondary = nextLine is not null
+                            ? LyricsSecondaryLinePolicy.ResolveSelection(
+                                settings.LyricsSecondaryLine,
+                                followingLine?.Text,
+                                nextTransText,
+                                nextPinyinText)
+                            : null;
+                        translationMode = currentSecondary is { Mode: not LyricsSecondaryLineMode.NextLine };
+                        visibleNext = currentSecondary is { Mode: LyricsSecondaryLineMode.NextLine } selection
+                            ? selection.Text
+                            : string.Empty;
+                        currentTranslation = translationMode ? currentSecondary?.Text ?? string.Empty : string.Empty;
+                        nextTranslation = nextSecondary is { Mode: not LyricsSecondaryLineMode.NextLine }
+                            ? nextSecondary.Value.Text
+                            : string.Empty;
+                    }
+                    else
+                    {
+                        currentSecondary = null;
+                        translationMode = false;
+                        visibleNext = string.Empty;
+                        currentTranslation = string.Empty;
+                        nextSecondary = null;
+                        nextTranslation = string.Empty;
+                    }
+                    break;
+            }
         }
         var lineProgress = ResolveLineProgress(currentLine, position);
         // 逐字时间轴进度同时驱动擦亮与长行横向滚动：擦亮只是叠在同一轨迹上的视觉层，

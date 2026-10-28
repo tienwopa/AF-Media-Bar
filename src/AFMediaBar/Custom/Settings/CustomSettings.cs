@@ -218,15 +218,22 @@ public enum TranslationProviderType
 /// Cấu hình tùy biến dành riêng cho tính năng Song ngữ &amp; Dual Taskbar Lyrics.
 /// </summary>
 /// <summary>
-/// Chế độ hiển thị trên Taskbar phụ khi bài hát gốc là Tiếng Việt.
+/// Chế độ hiển thị khi bài hát gốc là Tiếng Việt.
 /// </summary>
 public enum VietnameseSecondaryMode
 {
-    /// <summary>Hiển thị câu kế tiếp (Mặc định).</summary>
-    NextLine = 0,
+    /// <summary>Tách ra 2 bên: Media Bar (Lời gốc) & Taskbar phụ (Câu kế tiếp) [Mặc định].</summary>
+    SeparateSides = 0,
 
-    /// <summary>Để trống như cũ.</summary>
-    Empty = 1
+    /// <summary>Cùng 1 vị trí chính: Media Bar (Lời gốc + Câu kế tiếp) & Taskbar phụ (Ẩn).</summary>
+    CombinedOnMediaBar = 1,
+
+    /// <summary>Chỉ hiển thị lời gốc (Media Bar: Lời gốc | Taskbar phụ: Để trống/Ẩn).</summary>
+    OriginalOnly = 2,
+
+    // Tương thích ngược
+    NextLine = SeparateSides,
+    Empty = OriginalOnly
 }
 
 /// <summary>
