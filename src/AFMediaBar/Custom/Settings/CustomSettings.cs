@@ -345,7 +345,8 @@ public sealed class CustomSettingsManager
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public static CustomSettingsManager? Instance { get; private set; }
+    private static CustomSettingsManager? _instance;
+    public static CustomSettingsManager Instance => _instance ??= new CustomSettingsManager();
 
     public CustomSettings Current { get; private set; } = new();
 
@@ -353,7 +354,7 @@ public sealed class CustomSettingsManager
 
     public CustomSettingsManager()
     {
-        Instance = this;
+        _instance = this;
         LoadSettings();
     }
 

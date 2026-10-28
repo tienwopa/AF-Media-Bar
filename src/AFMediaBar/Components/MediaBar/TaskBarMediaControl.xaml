@@ -256,6 +256,12 @@
                         <Grid x:Name="SongInfoSurface"
                               Width="{Binding ElementName=SongInfoStackPanel, Path=Width}"
                               Height="{Binding ElementName=SongInfoStackPanel, Path=Height}">
+                            <!-- Hiệu ứng hạt nền phía sau toàn bộ khu vực lời bài hát & thông tin Media Bar -->
+                            <effects:LyricsBackgroundEffectCanvas x:Name="MediaBarLyricsBackgroundEffect"
+                                                                  TargetScope="MediaBarOriginalOnly"
+                                                                  HorizontalAlignment="Stretch"
+                                                                  VerticalAlignment="Stretch"
+                                                                  IsHitTestVisible="False" />
                             <StackPanel x:Name="SongMetadataPanel"
                                         RenderOptions.ClearTypeHint="Enabled"
                                         TextOptions.TextRenderingMode="ClearType"
@@ -296,12 +302,6 @@
                             </StackPanel>
 
                             <Grid x:Name="SongLyricsPanel" Opacity="0" IsHitTestVisible="False" ClipToBounds="True">
-                                <!-- Hiệu ứng nền hạt cho khu vực Lời bài hát gốc trên Media Bar -->
-                                <effects:LyricsBackgroundEffectCanvas x:Name="MediaBarLyricsBackgroundEffect"
-                                                                      TargetScope="MediaBarOriginalOnly"
-                                                                      HorizontalAlignment="Stretch"
-                                                                      VerticalAlignment="Stretch"
-                                                                      IsHitTestVisible="False" />
                                 <!--
                                     最小 1×1：WebView2 的合成控件在 0（或负数）尺寸的 SizeChanged 里会抛 ArgumentException
                                     （GraphicsItemD3DImage.UpdateSize），媒体栏长度收缩到零时会让整个应用闪退；把最小尺寸钉在

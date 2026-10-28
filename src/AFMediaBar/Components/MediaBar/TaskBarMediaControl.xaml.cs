@@ -1952,6 +1952,7 @@ namespace AFMediaBar.Components
                 }
 
                 _lyrics.UpdateWebLyricsPresentation(skipUnchangedContent: skipUnchangedLyricsContent);
+                MediaBarLyricsBackgroundEffect.IsActive = IsPlaying;
 
                 // 有媒体时封面与文字区一起构成"程序内的全局滚轮面"：曲名与歌手不再需要跟着提示走（它们已经在文字区里，
                 // 完整层则负责把整个标题显示完），因此这里只把封面的提示换回滚轮提示。
