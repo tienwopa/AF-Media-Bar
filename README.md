@@ -15,30 +15,16 @@
 
 ---
 
-## 🌟 Giới thiệu về Bản Fork này (`tienwopa/AF-Media-Bar`)
+## 💡 Về bản fork này
 
-Bản fork này được phát triển và tối ưu hóa dựa trên dự án gốc mã nguồn mở [Fervent-Tempo/AF-Media-Bar](https://github.com/Fervent-Tempo/AF-Media-Bar). Mục tiêu chính là đem lại trải nghiệm nghe nhạc song ngữ hoàn hảo, mở rộng khả năng hiển thị lời bài hát độc lập trên nhiều màn hình, và tự động hóa phiên âm Pinyin mượt mà cho người dùng.
+Bản fork từ repo gốc [Fervent-Tempo/AF-Media-Bar](https://github.com/Fervent-Tempo/AF-Media-Bar).
 
-### ✨ Các tính năng nâng cao nổi bật được bổ sung:
-
-1. **Dual Taskbar Overlay (2 thanh hiển thị lời bài hát độc lập):**
-   - Hỗ trợ hiển thị đồng thời 2 Taskbar Overlay (Màn hình 1 và Màn hình 2, hoặc hai vị trí riêng biệt).
-   - Cho phép tùy chỉnh độc lập từng thanh: Cỡ chữ (Nhỏ, Tiêu chuẩn, Lớn, Cực lớn), Phông chữ (Font family), Màu sắc tùy chọn, và Căn lề hiển thị (Trái, Giữa, Phải).
-
-2. **Hiển thị Lời dịch Tiếng Việt / Song ngữ thời gian thực:**
-   - Đồng bộ hiển thị song song lời gốc và lời dịch tiếng Việt (hoặc lời phụ) trên thanh Taskbar một cách nhịp nhàng theo tiến trình phát bài hát.
-   - Hỗ trợ tùy chọn đưa lời dịch sang màn hình phụ riêng biệt để không chiếm diện tích màn hình chính.
-
-3. **Tự động tạo Pinyin Offline:**
-   - Tích hợp sẵn bộ máy chuyển đổi phiên âm offline siêu nhẹ (`TinyPinyin.Net`) cho toàn bộ bài hát tiếng Trung.
-   - Không cần kết nối Internet, không gửi dữ liệu ra bên ngoài, tốc độ xử lý tức thì và tự động tách/ghép dòng Pinyin thông minh.
-
-4. **Tự động thích ứng màu nền Taskbar (Auto Adapt Color):**
-   - Tự động nhận biết trạng thái màu nền sáng/tối của thanh Taskbar Windows để chọn màu chữ tương phản tối ưu (chữ tối khi nền sáng và chữ sáng khi nền tối), tránh tình trạng chìm màu chữ.
-
-5. **Tối ưu hóa độ trễ & Native Taskbar Docking:**
-   - Tinh chỉnh cơ chế luồng hiển thị (Fast-track latency optimization), loại bỏ độ trễ khi chuyển câu hát và neo (dock) chắc chắn vào Taskbar Windows.
-
+- **Mục đích chính:** Rảnh rỗi sinh nông nỗi, muốn nghịch ngợm làm cái gì đó vui vẻ phục vụ nhu cầu nghe nhạc của bản thân.
+- **Mục đích phụ (những thứ đã làm trong dự án):**
+  - **Hiện lời trên 2 màn hình (Dual Taskbar Overlay):** Cắm nhiều màn hình thì mỗi màn có thể mở một thanh lời riêng; tự do chỉnh cỡ chữ, phông chữ, màu sắc và căn lề độc lập (hoặc để một màn lời chính, một màn lời dịch).
+  - **Lời dịch song ngữ & Pinyin:** Nghe nhạc tiếng Trung hay nhạc ngoại có thêm Pinyin offline (không cần mạng) và hỗ trợ tự động dịch lời (qua Gemini AI, OpenAI...), hiển thị song song mượt mà.
+  - **Chạy chữ Karaoke & Tự đổi màu theo Taskbar:** Chạy chữ karaoke theo thời gian thực, tự đổi màu chữ theo nền Taskbar sáng/tối để khỏi bị chìm chữ.
+  - **Tinh chỉnh hiển thị:** Giảm độ trễ chuyển câu, hỗ trợ chỉnh lệch giờ (offset) riêng cho lời dịch/pinyin để khớp đúng nhịp bài hát.
 ---
 
 ## Giới thiệu tổng quan
