@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -6,6 +6,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Services;
+using AFMediaBar.Classes.Utils;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Utils;
 
@@ -28,6 +29,10 @@ public partial class DualTaskbarPrimaryWindow : Window
     private bool _currentIsPrimaryPinyin;
     private double _currentPrimaryProgress = 1.0;
     private double _currentSecondaryProgress = 1.0;
+    private double _lastAppliedPrimaryProgress = -1;
+    private double _lastAppliedSecondaryProgress = -1;
+    private Color _lastPrimaryColor;
+    private Color _lastSecondaryColor;
 
     public DualTaskbarPrimaryWindow(
         ITaskbarDockService dockService,
@@ -40,16 +45,71 @@ public partial class DualTaskbarPrimaryWindow : Window
         Loaded += (_, _) =>
         {
             ApplyAppearance();
-            EnsureDockedAndPositioned();
+            EnsureDockedAndPositioned(forceReposition: true);
         };
 
-        _settingsManager.SettingsChanged += _ => Dispatcher.Invoke(() =>
+        _settingsManager.SettingsChanged += _ =>
         {
-            ApplyAppearance();
-            EnsureDockedAndPositioned();
-        });
+            if (Dispatcher.HasShutdownStarted) return;
+            Dispatcher.Invoke(() =>
+            {
+                ApplyAppearance();
+                EnsureDockedAndPositioned(forceReposition: true);
+            });
+        };
 
-        TaskbarThemeHelper.TaskbarThemeChanged += () => Dispatcher.Invoke(() => ApplyAppearance());
+        TaskbarThemeHelper.TaskbarThemeChanged += () =>
+        {
+            if (Dispatcher.HasShutdownStarted) return;
+            Dispatcher.Invoke(() => ApplyAppearance());
+        };
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        WindowHelper.SetNoActivate(this);
+        WindowHelper.SetInputTransparent(this, true);
+
+        if (PresentationSource.FromDependencyObject(this) is HwndSource source)
+        {
+            source.AddHook(WndProc);
+        }
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        DetachFromTaskbar();
+        base.OnClosing(e);
+    }
+
+    public void DetachFromTaskbar()
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero && _isDocked)
+            {
+                _dockService.UndockWindow(hwnd);
+                _isDocked = false;
+                _lastTaskbarHwnd = IntPtr.Zero;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DualTaskbarPrimaryWindow] Detach loi: {ex.Message}");
+        }
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_DISPLAYCHANGE = 0x007E;
+        const int WM_SETTINGCHANGE = 0x001A;
+        if (msg == WM_DISPLAYCHANGE || msg == WM_SETTINGCHANGE)
+        {
+            EnsureDockedAndPositioned(forceReposition: true);
+        }
+        return IntPtr.Zero;
     }
 
     public void ApplyAppearance()
@@ -119,9 +179,6 @@ public partial class DualTaskbarPrimaryWindow : Window
         bool isDark = IsColorDark(textColor);
         if (isDark)
         {
-            // Chữ màu tối (như đen #18181B):
-            // Tuyệt đối KHÔNG dùng bóng đen vì bóng đen bị lem/nhòe vào nét chữ, gây hiện tượng in đậm giả tạo.
-            // Dùng bóng sáng trắng rất nhẹ để chữ luôn sắc nét và giữ nguyên độ thanh mảnh.
             shadow.Color = Colors.White;
             shadow.Opacity = 0.25;
             shadow.BlurRadius = 2.0;
@@ -129,8 +186,6 @@ public partial class DualTaskbarPrimaryWindow : Window
         }
         else
         {
-            // Chữ màu sáng (trắng #FFFFFF, vàng #FFD54F...):
-            // Dùng bóng đen tiêu chuẩn để chữ nổi bật trên nền taskbar sáng hoặc hình nền.
             shadow.Color = Colors.Black;
             shadow.Opacity = 0.5;
             shadow.BlurRadius = 3.0;
@@ -140,7 +195,6 @@ public partial class DualTaskbarPrimaryWindow : Window
 
     private static bool IsColorDark(Color color)
     {
-        // Độ sáng cảm nhận (Perceived Luminance) chuẩn ITU-R BT.601
         double luminance = 0.299 * color.R + 0.587 * color.G + 0.114 * color.B;
         return luminance < 128.0;
     }
@@ -162,7 +216,6 @@ public partial class DualTaskbarPrimaryWindow : Window
         var duration = TimeSpan.FromMilliseconds(220);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
 
-        // 1. Fade in
         var opacityAnim = new DoubleAnimation(0.2, 1.0, duration) { EasingFunction = ease };
         LinesStack.BeginAnimation(OpacityProperty, opacityAnim);
 
@@ -193,6 +246,7 @@ public partial class DualTaskbarPrimaryWindow : Window
 
     /// <summary>
     /// Cập nhật nội dung hiển thị theo 1 hoặc 2 dòng kèm tiến độ chạy chữ Karaoke độc lập.
+    /// Tối ưu 0% overhead: Chỉ tính toán lại Layout và Text khi câu hát đổi hoặc mới hiển thị.
     /// </summary>
     public void UpdateContent(
         string primaryText,
@@ -201,6 +255,8 @@ public partial class DualTaskbarPrimaryWindow : Window
         double primaryProgress = 1.0,
         double secondaryProgress = 1.0)
     {
+        if (Dispatcher.HasShutdownStarted) return;
+
         Dispatcher.Invoke(() =>
         {
             if (string.IsNullOrWhiteSpace(primaryText))
@@ -211,6 +267,7 @@ public partial class DualTaskbarPrimaryWindow : Window
             }
 
             bool textChanged = _currentPrimaryText != primaryText || _currentSecondaryText != secondaryText;
+            bool isFirstVisible = Visibility != Visibility.Visible;
 
             _currentPrimaryText = primaryText;
             _currentSecondaryText = secondaryText;
@@ -221,103 +278,115 @@ public partial class DualTaskbarPrimaryWindow : Window
             var settings = _settingsManager.Current;
             ResolveColors(isPrimaryPinyin, out var pCol, out var sCol, out bool isLight);
 
-            // 1. Phân bổ cỡ chữ độc lập
-            double pSize = isPrimaryPinyin
-                ? (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0)
-                : (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5);
-
-            double sSize = isPrimaryPinyin
-                ? (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5)
-                : (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0);
-
-            bool hasTwoLines = !string.IsNullOrWhiteSpace(secondaryText);
-
-            if (hasTwoLines)
+            if (textChanged || isFirstVisible)
             {
-                // Khi hiển thị 2 dòng: co nhẹ để không tràn chiều cao taskbar (40-48px)
-                pSize = Math.Min(pSize, 13.0);
-                sSize = Math.Min(sSize, 12.0);
+                // 1. Phân bổ cỡ chữ độc lập
+                double pSize = isPrimaryPinyin
+                    ? (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0)
+                    : (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5);
 
-                PrimaryLineText.FontSize = pSize;
-                SecondaryLineText.FontSize = sSize;
-                PrimaryLineText.LineHeight = pSize * 1.15;
-                SecondaryLineText.LineHeight = sSize * 1.15;
+                double sSize = isPrimaryPinyin
+                    ? (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5)
+                    : (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0);
 
-                SecondaryLineText.Text = secondaryText!;
-                SecondaryLineText.Visibility = Visibility.Visible;
-                LinesStack.VerticalAlignment = VerticalAlignment.Center;
-            }
-            else
-            {
-                // Khi chỉ có 1 dòng hoạt động: Tự động căn giữa và nâng cỡ chữ bằng lời gốc
-                if (settings.AutoBalanceSingleLine)
+                bool hasTwoLines = !string.IsNullOrWhiteSpace(secondaryText);
+
+                if (hasTwoLines)
                 {
-                    double singleSize = Math.Max(pSize, 13.0);
-                    PrimaryLineText.FontSize = singleSize;
+                    pSize = Math.Min(pSize, 13.0);
+                    sSize = Math.Min(sSize, 12.0);
+
+                    PrimaryLineText.FontSize = pSize;
+                    SecondaryLineText.FontSize = sSize;
+                    PrimaryLineText.LineHeight = pSize * 1.15;
+                    SecondaryLineText.LineHeight = sSize * 1.15;
+
+                    SecondaryLineText.Text = secondaryText!;
+                    SecondaryLineText.Visibility = Visibility.Visible;
+                    LinesStack.VerticalAlignment = VerticalAlignment.Center;
                 }
                 else
                 {
-                    PrimaryLineText.FontSize = pSize;
+                    if (settings.AutoBalanceSingleLine)
+                    {
+                        double singleSize = Math.Max(pSize, 13.0);
+                        PrimaryLineText.FontSize = singleSize;
+                    }
+                    else
+                    {
+                        PrimaryLineText.FontSize = pSize;
+                    }
+
+                    PrimaryLineText.LineHeight = double.NaN;
+                    SecondaryLineText.Visibility = Visibility.Collapsed;
+                    LinesStack.VerticalAlignment = VerticalAlignment.Center;
                 }
 
-                PrimaryLineText.LineHeight = double.NaN;
-                SecondaryLineText.Visibility = Visibility.Collapsed;
-                LinesStack.VerticalAlignment = VerticalAlignment.Center;
+                // 2. Giới hạn độ rộng tối đa (Max Width)
+                double maxW = settings.PrimaryMaxWidth > 100 ? settings.PrimaryMaxWidth : 480;
+                PrimaryLineText.MaxWidth = maxW;
+                SecondaryLineText.MaxWidth = maxW;
+
+                // 3. Phân bổ Căn lề Taskbar chính
+                var textAlignment = settings.PrimaryAlignment switch
+                {
+                    PrimaryTaskbarAlignment.Left => TextAlignment.Left,
+                    PrimaryTaskbarAlignment.Center => TextAlignment.Center,
+                    _ => TextAlignment.Right
+                };
+                var horizAlignment = settings.PrimaryAlignment switch
+                {
+                    PrimaryTaskbarAlignment.Left => HorizontalAlignment.Left,
+                    PrimaryTaskbarAlignment.Center => HorizontalAlignment.Center,
+                    _ => HorizontalAlignment.Right
+                };
+
+                PrimaryLineText.TextAlignment = textAlignment;
+                SecondaryLineText.TextAlignment = textAlignment;
+                PrimaryLineText.HorizontalAlignment = horizAlignment;
+                SecondaryLineText.HorizontalAlignment = horizAlignment;
+                LinesStack.HorizontalAlignment = horizAlignment;
+
+                // 4. Phân bổ độ đậm chữ (FontWeight)
+                FontWeight pWeight = FontWeights.Normal;
+                FontWeight sWeight = FontWeights.Normal;
+
+                switch (settings.WeightEmphasis)
+                {
+                    case BilingualWeightEmphasis.Balanced:
+                        pWeight = FontWeights.Normal;
+                        sWeight = FontWeights.Normal;
+                        break;
+                    case BilingualWeightEmphasis.EmphasisTranslation:
+                        if (isPrimaryPinyin) { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
+                        else { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
+                        break;
+                    case BilingualWeightEmphasis.EmphasisRomanization:
+                        if (isPrimaryPinyin) { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
+                        else { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
+                        break;
+                    case BilingualWeightEmphasis.BothSemiBold:
+                        pWeight = FontWeights.SemiBold;
+                        sWeight = FontWeights.SemiBold;
+                        break;
+                }
+
+                PrimaryLineText.FontWeight = pWeight;
+                SecondaryLineText.FontWeight = sWeight;
+
+                PrimaryLineText.Text = primaryText;
+                BackgroundEffectCanvas.IsActive = true;
+                Visibility = Visibility.Visible;
+
+                EnsureDockedAndPositioned(forceReposition: isFirstVisible);
+
+                if (textChanged)
+                {
+                    TriggerEntranceAnimation(settings.AnimationMode);
+                }
             }
 
-            // 2. Giới hạn độ rộng tối đa (Max Width)
-            double maxW = settings.PrimaryMaxWidth > 100 ? settings.PrimaryMaxWidth : 480;
-            PrimaryLineText.MaxWidth = maxW;
-            SecondaryLineText.MaxWidth = maxW;
-
-            // 3. Phân bổ Căn lề Taskbar chính
-            var textAlignment = settings.PrimaryAlignment switch
-            {
-                PrimaryTaskbarAlignment.Left => TextAlignment.Left,
-                PrimaryTaskbarAlignment.Center => TextAlignment.Center,
-                _ => TextAlignment.Right
-            };
-            var horizAlignment = settings.PrimaryAlignment switch
-            {
-                PrimaryTaskbarAlignment.Left => HorizontalAlignment.Left,
-                PrimaryTaskbarAlignment.Center => HorizontalAlignment.Center,
-                _ => HorizontalAlignment.Right
-            };
-
-            PrimaryLineText.TextAlignment = textAlignment;
-            SecondaryLineText.TextAlignment = textAlignment;
-            PrimaryLineText.HorizontalAlignment = horizAlignment;
-            SecondaryLineText.HorizontalAlignment = horizAlignment;
-            LinesStack.HorizontalAlignment = horizAlignment;
-
-            // 4. Phân bổ độ đậm chữ (FontWeight)
-            FontWeight pWeight = FontWeights.Normal;
-            FontWeight sWeight = FontWeights.Normal;
-
-            switch (settings.WeightEmphasis)
-            {
-                case BilingualWeightEmphasis.Balanced:
-                    pWeight = FontWeights.Normal;
-                    sWeight = FontWeights.Normal;
-                    break;
-                case BilingualWeightEmphasis.EmphasisTranslation:
-                    if (isPrimaryPinyin) { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
-                    else { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
-                    break;
-                case BilingualWeightEmphasis.EmphasisRomanization:
-                    if (isPrimaryPinyin) { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
-                    else { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
-                    break;
-                case BilingualWeightEmphasis.BothSemiBold:
-                    pWeight = FontWeights.SemiBold;
-                    sWeight = FontWeights.SemiBold;
-                    break;
-            }
-
-            PrimaryLineText.FontWeight = pWeight;
-            SecondaryLineText.FontWeight = sWeight;
-
-            // 5. Áp dụng Brush màu (Karaoke Wipe hoặc Solid Color)
+            // 5. Áp dụng Brush màu Karaoke Wipe theo nhịp
             bool enableKaraoke = settings.EnableKaraokeHighlight;
             bool pinyinWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.RomanizationOnly);
             bool transWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.TranslationOnly);
@@ -325,29 +394,50 @@ public partial class DualTaskbarPrimaryWindow : Window
             bool primaryWipe = isPrimaryPinyin ? pinyinWipe : transWipe;
             bool secondaryWipe = isPrimaryPinyin ? transWipe : pinyinWipe;
 
-            PrimaryLineText.Foreground = primaryWipe
-                ? KaraokeBrushHelper.CreateKaraokeBrush(pCol, primaryProgress, isLight)
-                : new SolidColorBrush(pCol);
-
-            SecondaryLineText.Foreground = secondaryWipe
-                ? KaraokeBrushHelper.CreateKaraokeBrush(sCol, secondaryProgress, isLight)
-                : new SolidColorBrush(sCol);
-
-            PrimaryLineText.Text = primaryText;
-            BackgroundEffectCanvas.IsActive = true;
-            Visibility = Visibility.Visible;
-            EnsureDockedAndPositioned();
-
-            // 6. Kích hoạt Animation chuyển câu nếu đổi sang dòng mới
-            if (textChanged)
+            if (primaryWipe)
             {
-                TriggerEntranceAnimation(settings.AnimationMode);
+                if (textChanged || isFirstVisible || Math.Abs(_lastAppliedPrimaryProgress - primaryProgress) >= 0.005 || _lastPrimaryColor != pCol)
+                {
+                    PrimaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(pCol, primaryProgress, isLight);
+                    _lastAppliedPrimaryProgress = primaryProgress;
+                    _lastPrimaryColor = pCol;
+                }
+            }
+            else if (textChanged || isFirstVisible || _lastPrimaryColor != pCol)
+            {
+                var b = new SolidColorBrush(pCol);
+                b.Freeze();
+                PrimaryLineText.Foreground = b;
+                _lastPrimaryColor = pCol;
+                _lastAppliedPrimaryProgress = -1;
+            }
+
+            if (!string.IsNullOrWhiteSpace(secondaryText))
+            {
+                if (secondaryWipe)
+                {
+                    if (textChanged || isFirstVisible || Math.Abs(_lastAppliedSecondaryProgress - secondaryProgress) >= 0.005 || _lastSecondaryColor != sCol)
+                    {
+                        SecondaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(sCol, secondaryProgress, isLight);
+                        _lastAppliedSecondaryProgress = secondaryProgress;
+                        _lastSecondaryColor = sCol;
+                    }
+                }
+                else if (textChanged || isFirstVisible || _lastSecondaryColor != sCol)
+                {
+                    var b = new SolidColorBrush(sCol);
+                    b.Freeze();
+                    SecondaryLineText.Foreground = b;
+                    _lastSecondaryColor = sCol;
+                    _lastAppliedSecondaryProgress = -1;
+                }
             }
         });
     }
 
     public void HideContent()
     {
+        if (Dispatcher.HasShutdownStarted) return;
         Dispatcher.Invoke(() =>
         {
             BackgroundEffectCanvas.IsActive = false;
@@ -357,7 +447,7 @@ public partial class DualTaskbarPrimaryWindow : Window
         });
     }
 
-    public void EnsureDockedAndPositioned()
+    public void EnsureDockedAndPositioned(bool forceReposition = false)
     {
         try
         {
@@ -372,7 +462,10 @@ public partial class DualTaskbarPrimaryWindow : Window
                 _dockService.DockWindow(hwnd, taskbarHwnd);
                 _isDocked = true;
                 _lastTaskbarHwnd = taskbarHwnd;
+                forceReposition = true;
             }
+
+            if (!forceReposition) return;
 
             if (NativeMethods.GetWindowRect(taskbarHwnd, out var tbRect))
             {

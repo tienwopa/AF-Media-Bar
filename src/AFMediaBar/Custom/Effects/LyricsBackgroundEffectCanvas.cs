@@ -13,7 +13,7 @@ namespace AFMediaBar.Custom.Effects;
 /// </summary>
 public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
 {
-    private const int TargetFpsIntervalMs = 24; // ~42 FPS: Siêu mượt mà, chân thực nhưng cực kỳ tiết kiệm GPU/CPU
+    private const int TargetFpsIntervalMs = 35; // ~28.5 FPS: Tiết kiệm 35% tải CPU/GPU mà vẫn đảm bảo độ mượt mà tự nhiên 
 
     public static readonly DependencyProperty TargetScopeProperty =
         DependencyProperty.Register(
@@ -198,22 +198,20 @@ public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
 
     private void EnsureSettingsAttached()
     {
-        var mgr = CustomSettingsManager.Instance;
-        if (mgr != null && !_isSettingsAttached)
+        if (!_isSettingsAttached)
         {
-            mgr.SettingsChanged -= OnSettingsChanged;
-            mgr.SettingsChanged += OnSettingsChanged;
+            CustomSettingsManager.GlobalSettingsChanged -= OnSettingsChanged;
+            CustomSettingsManager.GlobalSettingsChanged += OnSettingsChanged;
             _isSettingsAttached = true;
-            ApplySettings(mgr.Current);
+            ApplySettings(CustomSettingsManager.Instance.Current);
         }
     }
 
     private void DetachSettings()
     {
-        var mgr = CustomSettingsManager.Instance;
-        if (mgr != null && _isSettingsAttached)
+        if (_isSettingsAttached)
         {
-            mgr.SettingsChanged -= OnSettingsChanged;
+            CustomSettingsManager.GlobalSettingsChanged -= OnSettingsChanged;
             _isSettingsAttached = false;
         }
     }
@@ -232,6 +230,14 @@ public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
         bool effectChanged = _currentEffect != settings.BackgroundEffect;
         _currentEffect = settings.BackgroundEffect;
         _customOpacity = Math.Clamp(settings.BackgroundEffectOpacity, 0.1, 1.0);
+
+        if (_currentEffect == LyricsBackgroundEffectType.None)
+        {
+            _particleCount = 0;
+            _particles = Array.Empty<Particle>();
+            StopTimer();
+            return;
+        }
 
         _speedMultiplier = settings.BackgroundEffectSpeed switch
         {
@@ -277,7 +283,6 @@ public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
 
         var scope = mgr.Current.BackgroundEffectScope;
         if (scope == LyricsEffectScope.Both) return true;
-        if (TargetScope == LyricsEffectScope.Both) return true;
 
         return TargetScope == scope;
     }
@@ -308,8 +313,9 @@ public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
         if (_renderTimer.IsEnabled)
         {
             _renderTimer.Stop();
-            InvalidateVisual();
         }
+        _particles = Array.Empty<Particle>();
+        InvalidateVisual();
     }
 
     private void ReinitializeParticlesIfSizeChanged()

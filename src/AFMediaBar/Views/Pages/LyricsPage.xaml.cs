@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using AFMediaBar.Classes.Utils;
 using AFMediaBar.Custom.Settings;
@@ -53,9 +53,14 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     public LyricsPage(LyricsViewModel viewModel, CustomSettingsManager? customSettings = null)
     {
         ViewModel = viewModel;
-        CustomSettings = customSettings ?? new CustomSettingsManager();
+        CustomSettings = customSettings ?? CustomSettingsManager.Instance;
         DataContext = this;
         InitializeComponent();
+
+        CustomGeminiApiKeyBox.TextChanged += CustomGeminiApiKeyBox_TextChanged;
+        CustomOpenAIBaseUrlBox.TextChanged += CustomOpenAIBaseUrlBox_TextChanged;
+        CustomOpenAIApiKeyBox.TextChanged += CustomOpenAIApiKeyBox_TextChanged;
+        CustomOpenAIModelBox.TextChanged += CustomOpenAIModelBox_TextChanged;
 
         Loaded += LyricsPage_Loaded;
     }

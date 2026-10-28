@@ -1,13 +1,14 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AFMediaBar.Custom.Settings;
 
 namespace AFMediaBar.Custom.Translation;
 
 /// <summary>
 /// Dịch vụ dịch lời bài hát sử dụng Google Gemini AI API.
-/// Dịch tự nhiên, cảm xúc, hiểu ngữ cảnh âm nhạc, hỗ trợ batching và fallback tự động.
+/// Dịch tự nhiên, cảm xúc, hiểu ngữ cảnh âm nhạc, hỗ trợ batching đánh số và fallback từng dòng tự động.
 /// </summary>
 public sealed class GeminiTranslateService : ITranslationService, IDisposable
 {
@@ -15,6 +16,8 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
     {
         Timeout = TimeSpan.FromSeconds(15)
     };
+
+    private static readonly Regex LineNumberRegex = new(@"^(?:\[(\d+)\]|(\d+)[\.:\)\-]\s*)(.*)$", RegexOptions.Compiled);
 
     private readonly CustomSettingsManager _settingsManager;
     private readonly TranslationCacheService _cacheService;
@@ -147,7 +150,7 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
             return results;
         }
 
-        // Gom nhóm 50 dòng mỗi lượt để xử lý trọn vẹn cả bài hát trong 1 request duy nhất, tiết kiệm tối đa quota 15 RPM
+        // Gom nhóm 50 dòng mỗi lượt để xử lý trọn vẹn trong 1 request duy nhất
         const int chunkSize = 50;
         for (int chunkStart = 0; chunkStart < missingTexts.Count; chunkStart += chunkSize)
         {
@@ -163,16 +166,16 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
             var sbPrompt = new StringBuilder();
             sbPrompt.AppendLine($"Bạn là dịch giả lời bài hát chuyên nghiệp. Hãy dịch chính xác {count} câu lời bài hát sau sang Tiếng Việt ({targetLanguage}) một cách tự nhiên, cảm xúc, phù hợp âm nhạc.");
             sbPrompt.AppendLine("QUY TẮC BẮT BUỘC:");
-            sbPrompt.AppendLine($"1. Phải trả về đúng chính xác {count} dòng kết quả.");
-            sbPrompt.AppendLine("2. Mỗi dòng kết quả tương ứng một câu hát gốc theo đúng thứ tự.");
-            sbPrompt.AppendLine("3. Chỉ trả về nội dung lời dịch Tiếng Việt, không đánh số thứ tự, không thêm lời chào, giải thích hoặc ký tự markdown.");
+            sbPrompt.AppendLine($"1. Đánh số thứ tự từ 1 đến {count} ở đầu mỗi câu dịch: 1. [câu 1], 2. [câu 2], v.v.");
+            sbPrompt.AppendLine("2. Mỗi câu dịch tương ứng một câu hát gốc theo đúng số thứ tự.");
+            sbPrompt.AppendLine("3. Chỉ trả về nội dung lời dịch Tiếng Việt, không thêm lời chào, giải thích hoặc markdown.");
             sbPrompt.AppendLine("\nNỘI DUNG CẦN DỊCH:");
             for (int i = 0; i < chunkLines.Count; i++)
             {
-                sbPrompt.AppendLine(chunkLines[i]);
+                sbPrompt.AppendLine($"{i + 1}. {chunkLines[i]}");
             }
 
-            bool chunkSuccess = false;
+            var parsedMap = new Dictionary<int, string>();
             try
             {
                 var requestBody = new
@@ -212,28 +215,27 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
                             var fullText = parts[0].GetProperty("text").GetString();
                             if (!string.IsNullOrWhiteSpace(fullText))
                             {
-                                var lines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None)
-                                    .Select(l => l.Trim())
-                                    .Where(l => !string.IsNullOrEmpty(l))
-                                    .ToList();
+                                var rawLines = fullText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                                foreach (var rawLine in rawLines)
+                                {
+                                    var match = LineNumberRegex.Match(rawLine.Trim());
+                                    if (match.Success)
+                                    {
+                                        string numStr = !string.IsNullOrEmpty(match.Groups[1].Value) ? match.Groups[1].Value : match.Groups[2].Value;
+                                        if (int.TryParse(numStr, out int num) && num >= 1 && num <= count)
+                                        {
+                                            parsedMap[num - 1] = match.Groups[3].Value.Trim();
+                                        }
+                                    }
+                                }
 
-                                if (lines.Count == count)
+                                // Fallback nếu Gemini không đánh số nhưng trả về đủ dòng
+                                if (parsedMap.Count == 0 && rawLines.Length == count)
                                 {
                                     for (int j = 0; j < count; j++)
                                     {
-                                        var original = chunkLines[j];
-                                        var trans = lines[j];
-                                        if (TranslationCacheService.IsValidTranslation(original, targetLanguage, trans))
-                                        {
-                                            _cacheService.Set(original, targetLanguage, trans);
-                                            results[chunkIndices[j]] = trans;
-                                        }
-                                        else
-                                        {
-                                            results[chunkIndices[j]] = string.Empty;
-                                        }
+                                        parsedMap[j] = rawLines[j].Trim();
                                     }
-                                    chunkSuccess = true;
                                 }
                             }
                         }
@@ -246,13 +248,32 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
                 System.Diagnostics.Debug.WriteLine($"[GeminiTranslate] Chunk loi: {ex.Message}");
             }
 
-            // Fallback sang Google Translate nếu Gemini không trả về đủ dòng hoặc quá hạn ngạch (429)
-            if (!chunkSuccess)
+            // Gán các dòng đã dịch thành công và gom các dòng còn thiếu
+            var unmappedIndices = new List<int>();
+            var unmappedTexts = new List<string>();
+
+            for (int j = 0; j < count; j++)
             {
-                var fallbackChunk = await _fallbackService.TranslateBatchAsync(chunkLines, targetLanguage, cancellationToken).ConfigureAwait(false);
-                for (int j = 0; j < count; j++)
+                var original = chunkLines[j];
+                if (parsedMap.TryGetValue(j, out var trans) && TranslationCacheService.IsValidTranslation(original, targetLanguage, trans))
                 {
-                    results[chunkIndices[j]] = fallbackChunk[j];
+                    _cacheService.Set(original, targetLanguage, trans);
+                    results[chunkIndices[j]] = trans;
+                }
+                else
+                {
+                    unmappedIndices.Add(chunkIndices[j]);
+                    unmappedTexts.Add(original);
+                }
+            }
+
+            // Chỉ fallback sang Google Translate cho những dòng còn thiếu (nếu có)!
+            if (unmappedTexts.Count > 0)
+            {
+                var fallbackChunk = await _fallbackService.TranslateBatchAsync(unmappedTexts, targetLanguage, cancellationToken).ConfigureAwait(false);
+                for (int m = 0; m < unmappedTexts.Count; m++)
+                {
+                    results[unmappedIndices[m]] = fallbackChunk[m];
                 }
             }
         }
@@ -269,7 +290,6 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
     {
         if (string.IsNullOrWhiteSpace(configuredModel)) return "gemini-3.5-flash";
         var trimmed = configuredModel.Trim();
-        // Fallback tự động các model đã ngừng hỗ trợ / 404 cho tài khoản mới
         if (trimmed.StartsWith("gemini-1.5", StringComparison.OrdinalIgnoreCase) ||
             trimmed.StartsWith("gemini-2.0", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(trimmed, "gemini-2.5-flash", StringComparison.OrdinalIgnoreCase))

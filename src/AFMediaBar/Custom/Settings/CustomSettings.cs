@@ -261,14 +261,23 @@ public enum ForeignNextLineCompanion
 /// </summary>
 public enum MediaBarLyricsDisplayMode
 {
-    /// <summary>Lời bài hát gốc (Mặc định).</summary>
+    /// <summary>Lời bài hát gốc (Mặc định - 1 dòng duy nhất).</summary>
     Original = 0,
 
-    /// <summary>Lời dịch Tiếng Việt.</summary>
-    Translation = 1,
+    /// <summary>Lời bài hát gốc + Pinyin / Phiên âm (2 dòng song song).</summary>
+    OriginalAndRomanization = 1,
 
-    /// <summary>Pinyin / Phiên âm.</summary>
-    Romanization = 2
+    /// <summary>Lời bài hát gốc + Lời dịch Tiếng Việt (2 dòng song song).</summary>
+    OriginalAndTranslation = 2,
+
+    /// <summary>Lời bài hát gốc + Lời bài hát tiếp theo (2 dòng song song).</summary>
+    OriginalAndNextLine = 3,
+
+    /// <summary>Lời dịch Tiếng Việt (1 dòng duy nhất).</summary>
+    Translation = 4,
+
+    /// <summary>Pinyin / Phiên âm (1 dòng duy nhất).</summary>
+    Romanization = 5
 }
 
 public sealed class CustomSettings
@@ -417,6 +426,9 @@ public sealed class CustomSettingsManager
 
     public CustomSettings Current { get; private set; } = new();
 
+    /// <summary>Sự kiện tĩnh toàn cục báo hiệu cấu hình tùy biến đã thay đổi.</summary>
+    public static event Action<CustomSettings>? GlobalSettingsChanged;
+
     public event Action<CustomSettings>? SettingsChanged;
 
     public CustomSettingsManager()
@@ -470,6 +482,7 @@ public sealed class CustomSettingsManager
             var json = JsonSerializer.Serialize(Current, _jsonOptions);
             File.WriteAllText(SettingsFilePath, json);
             SettingsChanged?.Invoke(Current);
+            GlobalSettingsChanged?.Invoke(Current);
         }
         catch (Exception ex)
         {

@@ -5,7 +5,7 @@ namespace AFMediaBar.Custom.Translation;
 
 /// <summary>
 /// Dịch vụ dịch thuật miễn phí dự phòng sử dụng MyMemory / Web Translation API.
-/// Hoạt động độc lập không cần API Key, hỗ trợ đệm cache.
+/// Hoạt động độc lập không cần API Key, hỗ trợ đệm cache và xử lý song song để tăng tốc độ.
 /// </summary>
 public sealed class BingTranslateService : ITranslationService, IDisposable
 {
@@ -77,10 +77,37 @@ public sealed class BingTranslateService : ITranslationService, IDisposable
         if (texts.Count == 0) return Array.Empty<string>();
 
         var results = new string[texts.Count];
+        var missing = new List<(int index, string text)>();
+
         for (int i = 0; i < texts.Count; i++)
         {
-            if (cancellationToken.IsCancellationRequested) break;
-            results[i] = await TranslateAsync(texts[i], targetLanguage, cancellationToken).ConfigureAwait(false);
+            var t = texts[i];
+            if (string.IsNullOrWhiteSpace(t))
+            {
+                results[i] = string.Empty;
+            }
+            else if (_cacheService.TryGet(t, targetLanguage, out var cached))
+            {
+                results[i] = cached;
+            }
+            else
+            {
+                missing.Add((i, t));
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            var parallelOptions = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = 4,
+                CancellationToken = cancellationToken
+            };
+
+            await Parallel.ForEachAsync(missing, parallelOptions, async (item, ct) =>
+            {
+                results[item.index] = await TranslateAsync(item.text, targetLanguage, ct).ConfigureAwait(false);
+            }).ConfigureAwait(false);
         }
 
         for (int i = 0; i < results.Length; i++)

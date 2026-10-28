@@ -1,12 +1,14 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AFMediaBar.Custom.Translation;
 
 /// <summary>
 /// Dịch vụ dịch thuật sử dụng Google Translate Web API công khai.
-/// Hỗ trợ phương thức HTTP POST chống chặn, cơ chế fallback đa endpoint và tích hợp sẵn TranslationCacheService.
+/// Hỗ trợ phương thức HTTP POST chống chặn, cơ chế fallback đa endpoint,
+/// đánh số thẻ dòng chống xô lệch (desynchronization) và tích hợp sẵn TranslationCacheService.
 /// </summary>
 public sealed class GoogleTranslateService : ITranslationService, IDisposable
 {
@@ -14,6 +16,8 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
     {
         Timeout = TimeSpan.FromSeconds(8)
     };
+
+    private static readonly Regex LineTagRegex = new(@"^\[(\d+)\]\s*(.*)$", RegexOptions.Compiled);
 
     private readonly TranslationCacheService _cacheService;
 
@@ -56,7 +60,7 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
     /// </summary>
     private static async Task<string> TranslateRawAsync(string text, string targetLanguage, CancellationToken cancellationToken)
     {
-        // Tầng 1: Sử dụng HTTP POST tới translate.googleapis.com (không bị giới hạn độ dài URL và tránh chặn WAF)
+        // Tầng 1: Sử dụng HTTP POST tới translate.googleapis.com
         try
         {
             const string postUrl = "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t";
@@ -109,7 +113,7 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
             System.Diagnostics.Debug.WriteLine($"[GoogleTranslate] Post primary loi: {ex.Message}");
         }
 
-        // Tầng 2: Fallback sang clients5.google.com endpoint (Chrome extension translation endpoint)
+        // Tầng 2: Fallback sang clients5.google.com endpoint
         try
         {
             var chromeUrl = $"https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl={Uri.EscapeDataString(targetLanguage)}";
@@ -241,8 +245,8 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
             return results;
         }
 
-        // 2. Gom những dòng chưa có cache thành các chunk tối đa 25 dòng
-        const int chunkSize = 25;
+        // 2. Gom những dòng chưa có cache thành các chunk tối đa 20 dòng kèm thẻ đánh số
+        const int chunkSize = 20;
         for (int chunkStart = 0; chunkStart < missingTexts.Count; chunkStart += chunkSize)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -254,33 +258,48 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
             var chunkLines = missingTexts.GetRange(chunkStart, count);
             var chunkIndices = missingIndices.GetRange(chunkStart, count);
 
-            var combinedText = string.Join("\n", chunkLines);
-            var translatedCombined = await TranslateRawAsync(combinedText, targetLanguage, cancellationToken).ConfigureAwait(false);
+            var sbTagged = new StringBuilder();
+            for (int k = 0; k < count; k++)
+            {
+                sbTagged.AppendLine($"[{k}] {chunkLines[k]}");
+            }
+
+            var translatedCombined = await TranslateRawAsync(sbTagged.ToString(), targetLanguage, cancellationToken).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(translatedCombined))
             {
-                var translatedLines = translatedCombined.Split('\n');
-                for (int j = 0; j < count; j++)
-                {
-                    var original = chunkLines[j];
-                    var trans = j < translatedLines.Length ? translatedLines[j].Trim() : string.Empty;
+                var translatedLines = translatedCombined.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                var matchedIndices = new HashSet<int>();
 
-                    if (TranslationCacheService.IsValidTranslation(original, targetLanguage, trans))
+                foreach (var rawLine in translatedLines)
+                {
+                    var match = LineTagRegex.Match(rawLine.Trim());
+                    if (match.Success && int.TryParse(match.Groups[1].Value, out int k) && k >= 0 && k < count)
                     {
-                        _cacheService.Set(original, targetLanguage, trans);
-                        results[chunkIndices[j]] = trans;
-                    }
-                    else
-                    {
-                        results[chunkIndices[j]] = string.Empty;
+                        var original = chunkLines[k];
+                        var trans = match.Groups[2].Value.Trim();
+                        if (TranslationCacheService.IsValidTranslation(original, targetLanguage, trans))
+                        {
+                            _cacheService.Set(original, targetLanguage, trans);
+                            results[chunkIndices[k]] = trans;
+                            matchedIndices.Add(k);
+                        }
                     }
                 }
-            }
-            else
-            {
-                for (int j = 0; j < count; j++)
+
+                // Nếu Google không giữ thẻ số nhưng trả về chính xác số dòng 1:1
+                if (matchedIndices.Count == 0 && translatedLines.Length == count)
                 {
-                    results[chunkIndices[j]] = string.Empty;
+                    for (int j = 0; j < count; j++)
+                    {
+                        var original = chunkLines[j];
+                        var trans = translatedLines[j].Trim();
+                        if (TranslationCacheService.IsValidTranslation(original, targetLanguage, trans))
+                        {
+                            _cacheService.Set(original, targetLanguage, trans);
+                            results[chunkIndices[j]] = trans;
+                        }
+                    }
                 }
             }
         }

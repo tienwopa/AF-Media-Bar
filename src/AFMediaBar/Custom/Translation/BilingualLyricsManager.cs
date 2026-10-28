@@ -11,6 +11,7 @@ namespace AFMediaBar.Custom.Translation;
 /// - Cơ chế Debounce thông minh giúp không bị nghẽn API Rate Limit (15 RPM) khi chuyển bài nhanh.
 /// - Đọc trước cache để hiển thị tức thì nếu bài hát đã từng được nghe.
 /// - Tự động làm mới dữ liệu khi người dùng đổi nhà cung cấp dịch trong Cài đặt.
+/// - Đảm bảo thread-safe 100% khi bắn sự kiện về UI thread.
 /// </summary>
 public sealed class BilingualLyricsManager
 {
@@ -38,8 +39,8 @@ public sealed class BilingualLyricsManager
         ActiveTrackKey = string.Empty;
         ActiveIsVietnamese = false;
     }
-    public static event Action<LyricDocument, bool>? EnrichedLyricsUpdated;
 
+    public static event Action<LyricDocument, bool>? EnrichedLyricsUpdated;
 
     public BilingualLyricsManager(
         ITranslationService translationService,
@@ -55,8 +56,6 @@ public sealed class BilingualLyricsManager
 
     private void SettingsManager_SettingsChanged(CustomSettings settings)
     {
-        // Khi người dùng thay đổi thiết lập dịch (ví dụ đổi Provider sang Google Dịch hoặc Gemini),
-        // làm mới bộ nhớ đệm RAM để bài hát hiện tại được lập tức dịch lại theo cấu hình mới.
         _documentCache.Clear();
         _lastProcessedTrack = string.Empty;
     }
@@ -80,6 +79,24 @@ public sealed class BilingualLyricsManager
         return vietnameseMatchCount >= 3 || (sampleSize > 0 && ((double)vietnameseMatchCount / sampleSize) >= 0.2);
     }
 
+    private void FireEvents(LyricDocument doc, bool isVietnamese)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher != null && !dispatcher.HasShutdownStarted && !dispatcher.CheckAccess())
+        {
+            dispatcher.BeginInvoke(() =>
+            {
+                BilingualLyricsReady?.Invoke(doc, isVietnamese);
+                EnrichedLyricsUpdated?.Invoke(doc, isVietnamese);
+            });
+        }
+        else
+        {
+            BilingualLyricsReady?.Invoke(doc, isVietnamese);
+            EnrichedLyricsUpdated?.Invoke(doc, isVietnamese);
+        }
+    }
+
     public void ProcessLyrics(string trackKey, LyricDocument document)
     {
         if (!_settingsManager.Current.EnableBilingualLyrics || document.Lines.Count == 0)
@@ -94,8 +111,7 @@ public sealed class BilingualLyricsManager
             ActiveTrackKey = trackKey;
             ActiveEnrichedDocument = cached.doc;
             ActiveIsVietnamese = cached.isVietnamese;
-            BilingualLyricsReady?.Invoke(cached.doc, cached.isVietnamese);
-            EnrichedLyricsUpdated?.Invoke(cached.doc, cached.isVietnamese);
+            FireEvents(cached.doc, cached.isVietnamese);
             return;
         }
 
@@ -117,13 +133,11 @@ public sealed class BilingualLyricsManager
             string? romanization = orig.Romanization;
             string? translation = orig.Translation;
 
-            // Nếu chưa có Pinyin mà là chữ Hán -> tự sinh Pinyin
             if (string.IsNullOrWhiteSpace(romanization) && PinyinGeneratorService.HasChinese(orig.Text))
             {
                 romanization = PinyinGeneratorService.ToPinyin(orig.Text);
             }
 
-            // Kiểm tra cache ổ đĩa để hiển thị tức thì 0ms nếu từng dịch
             if (string.IsNullOrWhiteSpace(translation) && _cacheService.TryGet(orig.Text, targetLang, out var cachedTrans))
             {
                 translation = cachedTrans;
@@ -145,7 +159,6 @@ public sealed class BilingualLyricsManager
 
         var immediateDoc = new LyricDocument(preparedLines, document.SyncType, document.SourceFormat);
 
-        // Kiểm tra tiếng Việt
         bool isVietnamese = IsVietnameseContent(document.Lines);
         _documentCache[trackKey] = (immediateDoc, isVietnamese);
 
@@ -154,14 +167,12 @@ public sealed class BilingualLyricsManager
         ActiveIsVietnamese = isVietnamese;
         if (isVietnamese && _settingsManager.Current.AutoSkipVietnamese)
         {
-            BilingualLyricsReady?.Invoke(immediateDoc, true);
-            EnrichedLyricsUpdated?.Invoke(immediateDoc, true);
+            FireEvents(immediateDoc, true);
             return;
         }
 
-        // Bắn ngay document đã có Pinyin (và cache nếu có) để hiển thị tức thì, không để người dùng chờ đợi!
-        BilingualLyricsReady?.Invoke(immediateDoc, false);
-        EnrichedLyricsUpdated?.Invoke(immediateDoc, false);
+        // Bắn ngay document đã có Pinyin (và cache nếu có) để hiển thị tức thì 0ms
+        FireEvents(immediateDoc, false);
 
         // Nếu tất cả các câu đều đã có sẵn trong cache thì không cần gọi mạng
         if (!hasAnyMissingTranslation)
@@ -180,8 +191,6 @@ public sealed class BilingualLyricsManager
         {
             try
             {
-                // DEBOUNCE: Nếu người dùng chuyển bài liên tục trong 350ms, tác vụ cũ sẽ bị hủy
-                // trước khi thực sự gửi yêu cầu mạng, tránh lãng phí hạn ngạch API (15 RPM)
                 await Task.Delay(350, token).ConfigureAwait(false);
                 if (token.IsCancellationRequested) return;
 
@@ -217,8 +226,7 @@ public sealed class BilingualLyricsManager
                 ActiveTrackKey = trackKey;
                 ActiveEnrichedDocument = fullDoc;
                 ActiveIsVietnamese = false;
-                BilingualLyricsReady?.Invoke(fullDoc, false);
-                EnrichedLyricsUpdated?.Invoke(fullDoc, false);
+                FireEvents(fullDoc, false);
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)

@@ -449,10 +449,13 @@
                                     Title="Nội dung chính trên Media Bar">
                                     <ComboBox x:Name="CustomMediaBarPrimaryCombo"
                                               SelectionChanged="CustomMediaBarPrimaryCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Lời bài hát gốc (Mặc định)" Tag="0" />
-                                        <ComboBoxItem Content="Lời dịch Tiếng Việt" Tag="1" />
-                                        <ComboBoxItem Content="Pinyin / Phiên âm" Tag="2" />
+                                              Width="300">
+                                        <ComboBoxItem Content="Lời bài hát gốc (Mặc định - 1 dòng)" Tag="0" />
+                                        <ComboBoxItem Content="Lời gốc + Pinyin (2 dòng song song)" Tag="1" />
+                                        <ComboBoxItem Content="Lời gốc + Lời dịch (2 dòng song song)" Tag="2" />
+                                        <ComboBoxItem Content="Lời gốc + Câu kế tiếp (2 dòng song song)" Tag="3" />
+                                        <ComboBoxItem Content="Lời dịch Tiếng Việt (1 dòng duy nhất)" Tag="4" />
+                                        <ComboBoxItem Content="Pinyin / Phiên âm (1 dòng duy nhất)" Tag="5" />
                                     </ComboBox>
                                 </components:SettingsRow>
 
@@ -898,7 +901,6 @@
                                         IsNested="True"
                                         Title="Gemini API Key">
                                         <TextBox x:Name="CustomGeminiApiKeyBox"
-                                                 TextChanged="CustomGeminiApiKeyBox_TextChanged"
                                                  Width="260" />
                                     </components:SettingsRow>
 
@@ -938,7 +940,6 @@
                                         IsNested="True"
                                         Title="Base URL">
                                         <TextBox x:Name="CustomOpenAIBaseUrlBox"
-                                                 TextChanged="CustomOpenAIBaseUrlBox_TextChanged"
                                                  Width="260" />
                                     </components:SettingsRow>
 
@@ -948,7 +949,6 @@
                                         IsNested="True"
                                         Title="API Key">
                                         <TextBox x:Name="CustomOpenAIApiKeyBox"
-                                                 TextChanged="CustomOpenAIApiKeyBox_TextChanged"
                                                  Width="260" />
                                     </components:SettingsRow>
 
@@ -958,7 +958,6 @@
                                         IsNested="True"
                                         Title="Tên mô hình (Model)">
                                         <TextBox x:Name="CustomOpenAIModelBox"
-                                                 TextChanged="CustomOpenAIModelBox_TextChanged"
                                                  Width="260" />
                                     </components:SettingsRow>
                                 </StackPanel>

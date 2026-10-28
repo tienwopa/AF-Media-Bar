@@ -2,12 +2,14 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AFMediaBar.Custom.Settings;
 
 namespace AFMediaBar.Custom.Translation;
 
 /// <summary>
 /// Dịch vụ dịch lời bài hát sử dụng API tương thích OpenAI (OpenAI GPT-4o-mini, DeepSeek V3, Groq...).
+/// Hỗ trợ xử lý batching đánh số và fallback từng dòng độc lập.
 /// </summary>
 public sealed class OpenAITranslateService : ITranslationService, IDisposable
 {
@@ -15,6 +17,8 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
     {
         Timeout = TimeSpan.FromSeconds(15)
     };
+
+    private static readonly Regex LineNumberRegex = new(@"^(?:\[(\d+)\]|(\d+)[\.:\)\-]\s*)(.*)$", RegexOptions.Compiled);
 
     private readonly CustomSettingsManager _settingsManager;
     private readonly TranslationCacheService _cacheService;
@@ -164,17 +168,17 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
 
             var sbPrompt = new StringBuilder();
             sbPrompt.AppendLine($"Bạn là dịch giả lời bài hát chuyên nghiệp. Hãy dịch chính xác {count} câu lời bài hát sau sang Tiếng Việt ({targetLanguage}) một cách tự nhiên, cảm xúc.");
-            sbPrompt.AppendLine("QUY TẮC:");
-            sbPrompt.AppendLine($"1. Phải trả về đúng chính xác {count} dòng kết quả.");
-            sbPrompt.AppendLine("2. Mỗi dòng kết quả tương ứng một câu hát gốc theo thứ tự.");
-            sbPrompt.AppendLine("3. Chỉ trả về nội dung lời dịch Tiếng Việt, không thêm đánh số thứ tự hoặc markdown.");
+            sbPrompt.AppendLine("QUY TẮC BẮT BUỘC:");
+            sbPrompt.AppendLine($"1. Đánh số thứ tự từ 1 đến {count} ở đầu mỗi câu dịch: 1. [câu 1], 2. [câu 2], v.v.");
+            sbPrompt.AppendLine("2. Mỗi câu dịch tương ứng một câu hát gốc theo thứ tự.");
+            sbPrompt.AppendLine("3. Không thêm lời chào, giải thích hoặc markdown.");
             sbPrompt.AppendLine("\nNỘI DUNG CẦN DỊCH:");
             for (int i = 0; i < chunkLines.Count; i++)
             {
-                sbPrompt.AppendLine(chunkLines[i]);
+                sbPrompt.AppendLine($"{i + 1}. {chunkLines[i]}");
             }
 
-            bool chunkSuccess = false;
+            var parsedMap = new Dictionary<int, string>();
             try
             {
                 var requestBody = new
@@ -205,28 +209,26 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
                         var content = choices[0].GetProperty("message").GetProperty("content").GetString();
                         if (!string.IsNullOrWhiteSpace(content))
                         {
-                            var lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None)
-                                .Select(l => l.Trim())
-                                .Where(l => !string.IsNullOrEmpty(l))
-                                .ToList();
+                            var rawLines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (var rawLine in rawLines)
+                            {
+                                var match = LineNumberRegex.Match(rawLine.Trim());
+                                if (match.Success)
+                                {
+                                    string numStr = !string.IsNullOrEmpty(match.Groups[1].Value) ? match.Groups[1].Value : match.Groups[2].Value;
+                                    if (int.TryParse(numStr, out int num) && num >= 1 && num <= count)
+                                    {
+                                        parsedMap[num - 1] = match.Groups[3].Value.Trim();
+                                    }
+                                }
+                            }
 
-                            if (lines.Count == count)
+                            if (parsedMap.Count == 0 && rawLines.Length == count)
                             {
                                 for (int j = 0; j < count; j++)
                                 {
-                                    var orig = chunkLines[j];
-                                    var trans = lines[j];
-                                    if (TranslationCacheService.IsValidTranslation(orig, targetLanguage, trans))
-                                    {
-                                        _cacheService.Set(orig, targetLanguage, trans);
-                                        results[chunkIndices[j]] = trans;
-                                    }
-                                    else
-                                    {
-                                        results[chunkIndices[j]] = string.Empty;
-                                    }
+                                    parsedMap[j] = rawLines[j].Trim();
                                 }
-                                chunkSuccess = true;
                             }
                         }
                     }
@@ -238,12 +240,30 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
                 System.Diagnostics.Debug.WriteLine($"[OpenAITranslate] Chunk loi: {ex.Message}");
             }
 
-            if (!chunkSuccess)
+            var unmappedIndices = new List<int>();
+            var unmappedTexts = new List<string>();
+
+            for (int j = 0; j < count; j++)
             {
-                var fallbackChunk = await _fallbackService.TranslateBatchAsync(chunkLines, targetLanguage, cancellationToken).ConfigureAwait(false);
-                for (int j = 0; j < count; j++)
+                var orig = chunkLines[j];
+                if (parsedMap.TryGetValue(j, out var trans) && TranslationCacheService.IsValidTranslation(orig, targetLanguage, trans))
                 {
-                    results[chunkIndices[j]] = fallbackChunk[j];
+                    _cacheService.Set(orig, targetLanguage, trans);
+                    results[chunkIndices[j]] = trans;
+                }
+                else
+                {
+                    unmappedIndices.Add(chunkIndices[j]);
+                    unmappedTexts.Add(orig);
+                }
+            }
+
+            if (unmappedTexts.Count > 0)
+            {
+                var fallbackChunk = await _fallbackService.TranslateBatchAsync(unmappedTexts, targetLanguage, cancellationToken).ConfigureAwait(false);
+                for (int m = 0; m < unmappedTexts.Count; m++)
+                {
+                    results[unmappedIndices[m]] = fallbackChunk[m];
                 }
             }
         }

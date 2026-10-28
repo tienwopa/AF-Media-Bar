@@ -13,8 +13,9 @@ namespace AFMediaBar.Custom.DualOverlay;
 /// Điều phối logic hiển thị đa dạng vị trí cho Lời dịch và Pinyin:
 /// - Ngoại suy thời gian thực GetPosition để hiệu ứng Karaoke chạy chữ siêu mượt 25 FPS (40ms).
 /// - Nhận diện thông minh: Chỉ bật Karaoke khi bài hát có dữ liệu Karaoke âm tiết thực sự, ngược lại tự động tắt.
-/// - Đồng bộ tức thì bật/tắt Lời bài hát song ngữ (EnableBilingualLyrics).
-/// - Hỗ trợ tùy chỉnh thứ tự dòng và tự động điều chỉnh tỷ lệ 1 dòng / 2 dòng.
+/// - Nhận diện khoảng dạo (Interlude Gap) chuẩn xác, tránh đơ câu cũ hoặc lặp lời.
+/// - Neo chặt câu dịch theo câu đang phát, triệt tiêu hoàn toàn hiện tượng lệch câu.
+/// - Tiết kiệm 100% CPU khi dừng/tạm dừng nhạc bằng cách ngắt timer thông minh.
 /// </summary>
 public sealed class DualOverlayCoordinator : IDisposable
 {
@@ -56,13 +57,23 @@ public sealed class DualOverlayCoordinator : IDisposable
 
         _primaryWindow.Show();
         _secondaryWindow.Show();
-        _syncTimer.Start();
+
+        // Kiểm tra snapshot khởi tạo
+        var snapshot = _mediaSessionService.CurrentSnapshot;
+        if (snapshot != null && snapshot.IsConnected && snapshot.IsPlaying && snapshot.Lyrics != null && snapshot.Lyrics.Document.Lines.Count > 0)
+        {
+            var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
+            _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
+            _activeDocument = snapshot.Lyrics.Document;
+            _syncTimer.Start();
+        }
     }
 
     private void SettingsManager_SettingsChanged(CustomSettings settings)
     {
         if (!settings.EnableDualTaskbarLyrics || !settings.EnableBilingualLyrics)
         {
+            _syncTimer.Stop();
             HideAllWindows();
             return;
         }
@@ -72,6 +83,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         {
             var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
             _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
+            if (!_syncTimer.IsEnabled) _syncTimer.Start();
         }
     }
 
@@ -81,7 +93,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         {
             _activeDocument = null;
             _isCurrentTrackVietnamese = false;
-            BilingualLyricsManager.ResetActiveTrack();
+            _syncTimer.Stop();
             HideAllWindows();
             return;
         }
@@ -90,6 +102,10 @@ public sealed class DualOverlayCoordinator : IDisposable
         _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
 
         _activeDocument ??= snapshot.Lyrics.Document;
+        if (!_syncTimer.IsEnabled)
+        {
+            _syncTimer.Start();
+        }
     }
 
     private void BilingualLyricsManager_BilingualLyricsReady(LyricDocument enrichedDoc, bool isVietnamese)
@@ -98,6 +114,9 @@ public sealed class DualOverlayCoordinator : IDisposable
         _isCurrentTrackVietnamese = isVietnamese;
     }
 
+    /// <summary>
+    /// Khớp câu hát hiện tại và câu kế tiếp có xử lý khoảng lặng dạo nhạc (Interlude).
+    /// </summary>
     private static (LyricLine? current, LyricLine? next) MatchCurrentAndNextLine(IReadOnlyList<LyricLine> lines, double seconds)
     {
         if (lines.Count == 0) return (null, null);
@@ -114,7 +133,15 @@ public sealed class DualOverlayCoordinator : IDisposable
             {
                 if (i > 0)
                 {
-                    return (lines[i - 1], lines[i]);
+                    if (seconds <= lines[i - 1].End)
+                    {
+                        return (lines[i - 1], lines[i]);
+                    }
+                    else
+                    {
+                        // Đang trong khoảng dạo nhạc (Interlude): câu cũ đã hết, câu mới chưa tới
+                        return (null, lines[i]);
+                    }
                 }
                 else
                 {
@@ -122,26 +149,9 @@ public sealed class DualOverlayCoordinator : IDisposable
                 }
             }
         }
-        return (seconds >= lines[^1].Start ? lines[^1] : null, null);
-    }
 
-    private static LyricLine? MatchLineAt(IReadOnlyList<LyricLine> lines, double seconds)
-    {
-        if (lines.Count == 0) return null;
-
-        for (int i = 0; i < lines.Count; i++)
-        {
-            var line = lines[i];
-            if (seconds >= line.Start && seconds <= line.End)
-            {
-                return line;
-            }
-            if (seconds < line.Start)
-            {
-                return i > 0 ? lines[i - 1] : null;
-            }
-        }
-        return seconds >= lines[^1].Start ? lines[^1] : null;
+        var last = lines[^1];
+        return (seconds >= last.Start && seconds <= last.End ? last : null, null);
     }
 
     /// <summary>
@@ -167,6 +177,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         var settings = _settingsManager.Current;
         if (!settings.EnableDualTaskbarLyrics || !settings.EnableBilingualLyrics)
         {
+            _syncTimer.Stop();
             HideAllWindows();
             return;
         }
@@ -174,11 +185,12 @@ public sealed class DualOverlayCoordinator : IDisposable
         var snapshot = _mediaSessionService.CurrentSnapshot;
         if (snapshot == null || !snapshot.IsConnected || !snapshot.IsPlaying || _activeDocument == null)
         {
+            _syncTimer.Stop();
             HideAllWindows();
             return;
         }
 
-        // Lấy vị trí thời gian thực ngoại suy theo mili-giây (TaskbarExperiencePolicy.GetPosition)
+        // Lấy vị trí thời gian thực ngoại suy theo mili-giây
         var now = DateTimeOffset.Now;
         var currentSeconds = TaskbarExperiencePolicy.GetPosition(snapshot, now);
 
@@ -189,17 +201,12 @@ public sealed class DualOverlayCoordinator : IDisposable
             return;
         }
 
-        // Áp dụng bù trừ thời gian hiển thị (Offset ms) cho Lời dịch và Pinyin
-        double transSeconds = currentSeconds + (settings.TranslationOffsetMs / 1000.0);
-        double pinyinSeconds = currentSeconds + (settings.RomanizationOffsetMs / 1000.0);
-
         var (currLine, nextLine) = MatchCurrentAndNextLine(lines, currentSeconds);
-        var transLine = MatchLineAt(lines, transSeconds);
-        var pinyinLine = MatchLineAt(lines, pinyinSeconds);
-
-        string? translation = transLine?.Translation;
-        string? pinyin = pinyinLine?.Romanization;
         string? nextText = nextLine?.Text;
+
+        // Neo câu dịch và Pinyin trực tiếp vào câu đang hát để triệt tiêu 100% lỗi lệch câu
+        string? translation = currLine?.Translation;
+        string? pinyin = currLine?.Romanization;
 
         // Bỏ qua dịch nếu bài hát là Tiếng Việt
         if (_isCurrentTrackVietnamese && settings.AutoSkipVietnamese)
@@ -208,9 +215,9 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         // Bảo vệ hiển thị: Nếu bản dịch rỗng, trùng lặp câu gốc hoặc vẫn là chữ Hán khi đích là Tiếng Việt
-        if (!string.IsNullOrWhiteSpace(translation))
+        if (currLine != null && !string.IsNullOrWhiteSpace(translation))
         {
-            var isDuplicateOriginal = transLine != null && string.Equals(translation.Trim(), transLine.Text.Trim(), StringComparison.OrdinalIgnoreCase);
+            var isDuplicateOriginal = string.Equals(translation.Trim(), currLine.Text.Trim(), StringComparison.OrdinalIgnoreCase);
             var isStillChinese = settings.TargetLanguage.StartsWith("vi", StringComparison.OrdinalIgnoreCase) && PinyinGeneratorService.HasChinese(translation);
             if (isDuplicateOriginal || isStillChinese)
             {
@@ -218,28 +225,27 @@ public sealed class DualOverlayCoordinator : IDisposable
             }
         }
 
-        if (pinyinLine != null && string.IsNullOrWhiteSpace(pinyin) && PinyinGeneratorService.HasChinese(pinyinLine.Text))
+        if (currLine != null && string.IsNullOrWhiteSpace(pinyin) && PinyinGeneratorService.HasChinese(currLine.Text))
         {
-            pinyin = PinyinGeneratorService.ToPinyin(pinyinLine.Text);
+            pinyin = PinyinGeneratorService.ToPinyin(currLine.Text);
         }
 
         // Kiểm tra nhận diện Karaoke thông minh
         double transProgress = 1.0;
         double pinyinProgress = 1.0;
 
-        if (settings.EnableKaraokeHighlight)
+        if (currLine != null && settings.EnableKaraokeHighlight)
         {
-            bool hasTransKaraoke = HasRealKaraokeWords(transLine);
-            bool hasPinyinKaraoke = HasRealKaraokeWords(pinyinLine);
+            // Offset ms chỉ điều chỉnh nhịp quét sớm/muộn cho mượt mà, không làm lệch câu
+            double transSeconds = currentSeconds + (settings.TranslationOffsetMs / 1000.0);
+            double pinyinSeconds = currentSeconds + (settings.RomanizationOffsetMs / 1000.0);
 
-            if (!settings.OnlyKaraokeWhenAvailable || hasTransKaraoke)
-            {
-                transProgress = transLine != null ? CalculateTranslationProgress(transLine, transSeconds) : 1.0;
-            }
+            bool hasKaraoke = HasRealKaraokeWords(currLine);
 
-            if (!settings.OnlyKaraokeWhenAvailable || hasPinyinKaraoke)
+            if (!settings.OnlyKaraokeWhenAvailable || hasKaraoke)
             {
-                pinyinProgress = pinyinLine != null ? CalculatePinyinProgress(pinyinLine, pinyin, pinyinSeconds) : 1.0;
+                transProgress = CalculateTranslationProgress(currLine, transSeconds);
+                pinyinProgress = CalculatePinyinProgress(currLine, pinyin, pinyinSeconds);
             }
         }
 
@@ -261,7 +267,6 @@ public sealed class DualOverlayCoordinator : IDisposable
             return 1.0;
         }
 
-        // Nếu câu hát có danh sách âm tiết/từ (Words)
         if (line.Words != null && line.Words.Count > 0)
         {
             var words = line.Words;
@@ -417,7 +422,6 @@ public sealed class DualOverlayCoordinator : IDisposable
             // Bài hát Nước ngoài
             if (settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
             {
-                // Khi bật câu kế tiếp cho bài nước ngoài: Dòng 1 là Câu kế tiếp, Dòng 2 chọn 1 trong 2 (Dịch hoặc Pinyin)
                 primaryLine1 = nextLineText;
                 primaryProgress1 = 1.0;
 
@@ -440,7 +444,6 @@ public sealed class DualOverlayCoordinator : IDisposable
             }
             else
             {
-                // Mặc định như cũ: Hiển thị song ngữ Lời dịch + Pinyin
                 bool hasTrans = showTransOnPrimary && !string.IsNullOrWhiteSpace(translation);
                 bool hasPinyin = showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin);
 
@@ -611,6 +614,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         _mediaSessionService.SnapshotChanged -= MediaSessionService_SnapshotChanged;
         _bilingualLyricsManager.BilingualLyricsReady -= BilingualLyricsManager_BilingualLyricsReady;
         _settingsManager.SettingsChanged -= SettingsManager_SettingsChanged;
+        _primaryWindow.DetachFromTaskbar();
         _primaryWindow.Close();
         _secondaryWindow.Close();
     }

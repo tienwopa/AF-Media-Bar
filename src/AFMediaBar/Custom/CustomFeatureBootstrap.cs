@@ -13,7 +13,7 @@ public static class CustomFeatureBootstrap
     public static IServiceCollection AddCustomDualOverlayFeature(this IServiceCollection services)
     {
         // 1. Cấu hình
-        services.AddSingleton<CustomSettingsManager>();
+        services.AddSingleton(CustomSettingsManager.Instance);
 
         // 2. Dịch thuật Đa nguồn & Cache
         services.AddSingleton<TranslationCacheService>();

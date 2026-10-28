@@ -271,6 +271,16 @@
             0);
         }
 
+        // Nếu cùng dòng đang phát (current.current === target.current) mà chỉ có dữ liệu dịch phụ đến sau từ background,
+        // thay thế tại chỗ (REPLACE_IN_PLACE) không cuộn lặp lại cả câu chính.
+        if (current.current === target.current && !scanModeChanged) {
+          return makePlan(
+            TRANSITIONS.REPLACE_IN_PLACE,
+            current,
+            target,
+            0);
+        }
+
         // The text of the line already on screen changed: hiding reading annotations, or the Chinese
         // conversion becoming ready in the background, both do this. Treat it as a line change so the old
         // sentence rolls out and the new one rolls in; swapping it in place is what reads as a hard refresh.
