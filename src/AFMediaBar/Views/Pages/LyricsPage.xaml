@@ -435,30 +435,182 @@
                                              Click="CustomEnableDualTaskbarSwitch_Click" />
                         </components:SettingsRow>
 
-                        <!-- THẺ 1: BỐ CỤC HIỂN THỊ & CỠ CHỮ -->
+                        <!-- THẺ 1: NỘI DUNG CHÍNH TRÊN MEDIA BAR -->
                         <ui:CardExpander
                             Margin="0,8,0,0"
-                            Header="Bố cục hiển thị &amp; Cỡ chữ"
-                            Icon="{ui:SymbolIcon TextFontSize24}"
+                            Header="Nội dung chính trên Media Bar (Taskbar chính)"
+                            Icon="{ui:SymbolIcon MusicNote224}"
                             IsExpanded="True">
                             <StackPanel Margin="0,0,0,4">
-                                                                <components:SettingsRow
-                                    Description="Tùy chọn hiển thị Lời gốc, Lời dịch Tiếng Việt hoặc Pinyin tại vị trí thanh Media Bar"
-                                    Icon="{ui:SymbolIcon MusicNote224}"
+                                <components:SettingsRow
+                                    Description="Chọn thành phần hiển thị tại Dòng trên (hoặc dòng duy nhất nếu dòng dưới tắt)"
+                                    Icon="{ui:SymbolIcon TextGrammarWand24}"
                                     IsNested="True"
-                                    Title="Nội dung chính trên Media Bar">
-                                    <ComboBox x:Name="CustomMediaBarPrimaryCombo"
-                                              SelectionChanged="CustomMediaBarPrimaryCombo_SelectionChanged"
-                                              Width="300">
-                                        <ComboBoxItem Content="Lời bài hát gốc (Mặc định - 1 dòng)" Tag="0" />
-                                        <ComboBoxItem Content="Lời gốc + Pinyin (2 dòng song song)" Tag="1" />
-                                        <ComboBoxItem Content="Lời gốc + Lời dịch (2 dòng song song)" Tag="2" />
-                                        <ComboBoxItem Content="Lời gốc + Câu kế tiếp (2 dòng song song)" Tag="3" />
-                                        <ComboBoxItem Content="Lời dịch Tiếng Việt (1 dòng duy nhất)" Tag="4" />
-                                        <ComboBoxItem Content="Pinyin / Phiên âm (1 dòng duy nhất)" Tag="5" />
+                                    Title="Dòng trên (Dòng 1)">
+                                    <ComboBox x:Name="CustomMediaBarLine1Combo"
+                                              SelectionChanged="CustomMediaBarLine1Combo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Lời bài hát gốc (Mặc định)" Tag="1" />
+                                        <ComboBoxItem Content="Lời dịch Tiếng Việt" Tag="2" />
+                                        <ComboBoxItem Content="Pinyin / Phiên âm" Tag="3" />
                                     </ComboBox>
                                 </components:SettingsRow>
 
+                                <components:SettingsRow
+                                    Description="Chọn thành phần hiển thị tại Dòng dưới (Chọn 'Không hiển thị' để chỉ hiện 1 dòng)"
+                                    Icon="{ui:SymbolIcon TextParagraph24}"
+                                    IsNested="True"
+                                    Title="Dòng dưới (Dòng 2)">
+                                    <ComboBox x:Name="CustomMediaBarLine2Combo"
+                                              SelectionChanged="CustomMediaBarLine2Combo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Không hiển thị (Chỉ 1 dòng duy nhất)" Tag="0" />
+                                        <ComboBoxItem Content="Lời dịch Tiếng Việt" Tag="2" />
+                                        <ComboBoxItem Content="Pinyin / Phiên âm" Tag="3" />
+                                        <ComboBoxItem Content="Câu kế tiếp (Next line)" Tag="4" />
+                                        <ComboBoxItem Content="Lời bài hát gốc" Tag="1" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+                            </StackPanel>
+                        </ui:CardExpander>
+
+                        <!-- THẺ 2: VỊ TRÍ CÒN LẠI (TASKBAR PHỤ & MÀN HÌNH PHỤ) -->
+                        <ui:CardExpander
+                            Margin="0,8,0,0"
+                            Header="Vị trí còn lại (Taskbar phụ &amp; Màn hình phụ)"
+                            Icon="{ui:SymbolIcon Desktop24}"
+                            IsExpanded="True">
+                            <StackPanel Margin="0,0,0,4">
+                                <components:SettingsRow
+                                    Description="Chọn căn lề (Phải / Giữa / Trái) cho khu vực hiển thị trên Taskbar chính"
+                                    Icon="{ui:SymbolIcon TextAlignJustify24}"
+                                    IsNested="True"
+                                    Title="Căn lề trên Taskbar chính">
+                                    <ComboBox x:Name="CustomPrimaryAlignCombo"
+                                              SelectionChanged="CustomPrimaryAlignCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Căn phải (Cạnh khay hệ thống - Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="Căn giữa khu vực trống" Tag="1" />
+                                        <ComboBoxItem Content="Căn trái" Tag="2" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Giới hạn chiều rộng tối đa của khu vực hiển thị lời bài hát trên Taskbar chính"
+                                    Icon="{ui:SymbolIcon ArrowAutofitWidth24}"
+                                    IsNested="True"
+                                    Title="Giới hạn độ rộng Taskbar">
+                                    <ComboBox x:Name="CustomPrimaryMaxWidthCombo"
+                                              SelectionChanged="CustomPrimaryMaxWidthCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="320 px (Nhỏ gọn)" Tag="320" />
+                                        <ComboBoxItem Content="400 px (Vừa vặn)" Tag="400" />
+                                        <ComboBoxItem Content="480 px (Tiêu chuẩn)" Tag="480" />
+                                        <ComboBoxItem Content="560 px (Rộng)" Tag="560" />
+                                        <ComboBoxItem Content="640 px (Rất rộng)" Tag="640" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Chọn màn hình và vị trí hiển thị cho bản dịch Tiếng Việt"
+                                    Icon="{ui:SymbolIcon Translate24}"
+                                    IsNested="True"
+                                    Title="Vị trí hiển thị Lời dịch">
+                                    <ComboBox x:Name="CustomTransPlacementCombo"
+                                              SelectionChanged="CustomTransPlacementCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Phía đối diện Taskbar chính" />
+                                        <ComboBoxItem Content="Màn hình thứ 2" />
+                                        <ComboBoxItem Content="Hiển thị trên cả hai màn hình" />
+                                        <ComboBoxItem Content="Không hiển thị (Tắt)" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Chọn màn hình và vị trí hiển thị cho Pinyin"
+                                    Icon="{ui:SymbolIcon DocumentText24}"
+                                    IsNested="True"
+                                    Title="Vị trí hiển thị Pinyin">
+                                    <ComboBox x:Name="CustomPinyinPlacementCombo"
+                                              SelectionChanged="CustomPinyinPlacementCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Phía đối diện Taskbar chính" />
+                                        <ComboBoxItem Content="Màn hình thứ 2" />
+                                        <ComboBoxItem Content="Hiển thị trên cả hai màn hình" />
+                                        <ComboBoxItem Content="Không hiển thị (Tắt)" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Lựa chọn căn lề khi hiển thị trên Màn hình thứ 2"
+                                    Icon="{ui:SymbolIcon TextAlignJustify24}"
+                                    IsNested="True"
+                                    Title="Căn lề tại Màn hình thứ 2">
+                                    <ComboBox x:Name="CustomSecondaryAlignCombo"
+                                              SelectionChanged="CustomSecondaryAlignCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Căn giữa (Mặc định)" Tag="1" />
+                                        <ComboBoxItem Content="Căn trái" Tag="0" />
+                                        <ComboBoxItem Content="Căn phải" Tag="2" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Lựa chọn chế độ hiển thị tự động khử trùng lặp hoặc tùy chỉnh dòng riêng"
+                                    Icon="{ui:SymbolIcon Settings24}"
+                                    IsNested="True"
+                                    Title="Chế độ hiển thị vị trí còn lại">
+                                    <ComboBox x:Name="CustomSecondaryModeCombo"
+                                              SelectionChanged="CustomSecondaryModeCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Tự động (Khử trùng lặp thông minh với Media Bar)" Tag="1" />
+                                        <ComboBoxItem Content="Tùy chỉnh dòng hiển thị riêng (Thủ công)" Tag="0" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <StackPanel x:Name="CustomSecondaryCustomLinesPanel">
+                                    <components:SettingsRow
+                                        Description="Thành phần hiển thị ở dòng trên của vị trí còn lại (Taskbar phụ / Màn phụ)"
+                                        Icon="{ui:SymbolIcon TextGrammarWand24}"
+                                        IsNested="True"
+                                        Title="Dòng trên vị trí còn lại">
+                                        <ComboBox x:Name="CustomSecondaryLine1Combo"
+                                                  SelectionChanged="CustomSecondaryLine1Combo_SelectionChanged"
+                                                  Width="280">
+                                            <ComboBoxItem Content="Không hiển thị" Tag="0" />
+                                            <ComboBoxItem Content="Lời bài hát gốc" Tag="1" />
+                                            <ComboBoxItem Content="Lời dịch Tiếng Việt" Tag="2" />
+                                            <ComboBoxItem Content="Pinyin / Phiên âm" Tag="3" />
+                                            <ComboBoxItem Content="Câu kế tiếp" Tag="4" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Thành phần hiển thị ở dòng dưới của vị trí còn lại (Chọn 'Không hiển thị' để hiện 1 dòng)"
+                                        Icon="{ui:SymbolIcon TextParagraph24}"
+                                        IsNested="True"
+                                        Title="Dòng dưới vị trí còn lại">
+                                        <ComboBox x:Name="CustomSecondaryLine2Combo"
+                                                  SelectionChanged="CustomSecondaryLine2Combo_SelectionChanged"
+                                                  Width="280">
+                                            <ComboBoxItem Content="Không hiển thị (Chỉ 1 dòng duy nhất)" Tag="0" />
+                                            <ComboBoxItem Content="Lời bài hát gốc" Tag="1" />
+                                            <ComboBoxItem Content="Lời dịch Tiếng Việt" Tag="2" />
+                                            <ComboBoxItem Content="Pinyin / Phiên âm" Tag="3" />
+                                            <ComboBoxItem Content="Câu kế tiếp" Tag="4" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+                                </StackPanel>
+                            </StackPanel>
+                        </ui:CardExpander>
+
+                        <!-- THẺ 3: QUY TẮC THEO NGÔN NGỮ BÀI HÁT -->
+                        <ui:CardExpander
+                            Margin="0,8,0,0"
+                            Header="Quy tắc theo ngôn ngữ bài hát"
+                            Icon="{ui:SymbolIcon Globe24}"
+                            IsExpanded="False">
+                            <StackPanel Margin="0,0,0,4">
                                 <components:SettingsRow
                                     Description="Tùy chọn hiển thị lời gốc và câu kế tiếp khi bài hát là Tiếng Việt"
                                     Icon="{ui:SymbolIcon FastForward24}"
@@ -480,7 +632,7 @@
                                     Title="Khi bài hát là Nước ngoài (Taskbar phụ)">
                                     <ComboBox x:Name="CustomForeignSecondaryCombo"
                                               SelectionChanged="CustomForeignSecondaryCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="Lời dịch &amp; Pinyin (Mặc định)" Tag="0" />
                                         <ComboBoxItem Content="Hiển thị câu kế tiếp" Tag="1" />
                                     </ComboBox>
@@ -493,7 +645,7 @@
                                     Title="Dòng đi kèm câu kế tiếp (Nhạc nước ngoài)">
                                     <ComboBox x:Name="CustomForeignCompanionCombo"
                                               SelectionChanged="CustomForeignCompanionCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="Kèm Lời dịch Tiếng Việt (Mặc định)" Tag="0" />
                                         <ComboBoxItem Content="Kèm Pinyin / Phiên âm" Tag="1" />
                                         <ComboBoxItem Content="Chỉ hiện câu kế tiếp (1 dòng)" Tag="2" />
@@ -501,13 +653,31 @@
                                 </components:SettingsRow>
 
                                 <components:SettingsRow
+                                    Description="Không hiển thị bản dịch khi bài hát gốc vốn đã là Tiếng Việt để tránh trùng lặp"
+                                    Icon="{ui:SymbolIcon CheckmarkCircle24}"
+                                    IsNested="True"
+                                    Title="Bỏ qua dịch khi lời gốc là Tiếng Việt">
+                                    <ui:ToggleSwitch x:Name="CustomAutoSkipVietnameseSwitch"
+                                                     Click="CustomAutoSkipVietnameseSwitch_Click" />
+                                </components:SettingsRow>
+                            </StackPanel>
+                        </ui:CardExpander>
+
+                        <!-- THẺ 4: KIỂU CHỮ, CỠ CHỮ & MÀU SẮC -->
+                        <ui:CardExpander
+                            Margin="0,8,0,0"
+                            Header="Kiểu chữ, Cỡ chữ &amp; Màu sắc"
+                            Icon="{ui:SymbolIcon TextFontSize24}"
+                            IsExpanded="False">
+                            <StackPanel Margin="0,0,0,4">
+                                <components:SettingsRow
                                     Description="Lựa chọn dòng nào ở trên, dòng nào ở dưới khi hiển thị song song 2 dòng"
                                     Icon="{ui:SymbolIcon ArrowSort24}"
                                     IsNested="True"
                                     Title="Thứ tự dòng hiển thị">
                                     <ComboBox x:Name="CustomLineOrderCombo"
                                               SelectionChanged="CustomLineOrderCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="Lời dịch ở trên, Pinyin ở dưới (Mặc định)" Tag="0" />
                                         <ComboBoxItem Content="Pinyin ở trên, Lời dịch ở dưới" Tag="1" />
                                     </ComboBox>
@@ -520,7 +690,7 @@
                                     Title="Cỡ chữ Lời dịch Tiếng Việt">
                                     <ComboBox x:Name="CustomTransFontSizeCombo"
                                               SelectionChanged="CustomTransFontSizeCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="9 pt (Rất nhỏ)" Tag="9.0" />
                                         <ComboBoxItem Content="10 pt (Nhỏ)" Tag="10.0" />
                                         <ComboBoxItem Content="10.5 pt" Tag="10.5" />
@@ -541,7 +711,7 @@
                                     Title="Cỡ chữ Pinyin / Phiên âm">
                                     <ComboBox x:Name="CustomPinyinFontSizeCombo"
                                               SelectionChanged="CustomPinyinFontSizeCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="9 pt (Rất nhỏ)" Tag="9.0" />
                                         <ComboBoxItem Content="10 pt (Nhỏ)" Tag="10.0" />
                                         <ComboBoxItem Content="10.5 pt" Tag="10.5" />
@@ -562,7 +732,7 @@
                                     Title="Độ đậm phông chữ">
                                     <ComboBox x:Name="CustomFontWeightCombo"
                                               SelectionChanged="CustomFontWeightCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="Cân bằng (Độ đậm như nhau - Mặc định)" Tag="0" />
                                         <ComboBoxItem Content="Ưu tiên Lời dịch (Lời dịch in đậm)" Tag="1" />
                                         <ComboBoxItem Content="Ưu tiên Pinyin (Pinyin in đậm)" Tag="2" />
@@ -577,217 +747,6 @@
                                     Title="Tự cân bằng khi hiển thị 1 dòng">
                                     <ui:ToggleSwitch x:Name="CustomAutoBalanceSingleLineSwitch"
                                                      Click="CustomAutoBalanceSingleLineSwitch_Click" />
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Chọn căn lề (Phải / Giữa / Trái) cho khu vực hiển thị trên Taskbar chính"
-                                    Icon="{ui:SymbolIcon TextAlignJustify24}"
-                                    IsNested="True"
-                                    Title="Căn lề trên Taskbar chính">
-                                    <ComboBox x:Name="CustomPrimaryAlignCombo"
-                                              SelectionChanged="CustomPrimaryAlignCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Căn phải (Cạnh khay hệ thống - Mặc định)" Tag="0" />
-                                        <ComboBoxItem Content="Căn giữa khu vực trống" Tag="1" />
-                                        <ComboBoxItem Content="Căn trái" Tag="2" />
-                                    </ComboBox>
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Giới hạn chiều rộng tối đa của khu vực hiển thị lời bài hát trên Taskbar chính"
-                                    Icon="{ui:SymbolIcon ArrowAutofitWidth24}"
-                                    IsNested="True"
-                                    Title="Giới hạn độ rộng Taskbar">
-                                    <ComboBox x:Name="CustomPrimaryMaxWidthCombo"
-                                              SelectionChanged="CustomPrimaryMaxWidthCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="320 px (Nhỏ gọn)" Tag="320" />
-                                        <ComboBoxItem Content="400 px (Vừa vặn)" Tag="400" />
-                                        <ComboBoxItem Content="480 px (Tiêu chuẩn)" Tag="480" />
-                                        <ComboBoxItem Content="560 px (Rộng)" Tag="560" />
-                                        <ComboBoxItem Content="640 px (Rất rộng)" Tag="640" />
-                                    </ComboBox>
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Chọn màn hình và vị trí hiển thị cho bản dịch Tiếng Việt"
-                                    Icon="{ui:SymbolIcon Translate24}"
-                                    IsNested="True"
-                                    Title="Vị trí hiển thị Lời dịch">
-                                    <ComboBox x:Name="CustomTransPlacementCombo"
-                                              SelectionChanged="CustomTransPlacementCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Phía đối diện Taskbar chính" />
-                                        <ComboBoxItem Content="Màn hình thứ 2" />
-                                        <ComboBoxItem Content="Hiển thị trên cả hai màn hình" />
-                                        <ComboBoxItem Content="Không hiển thị (Tắt)" />
-                                    </ComboBox>
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Chọn màn hình và vị trí hiển thị cho Pinyin"
-                                    Icon="{ui:SymbolIcon DocumentText24}"
-                                    IsNested="True"
-                                    Title="Vị trí hiển thị Pinyin">
-                                    <ComboBox x:Name="CustomPinyinPlacementCombo"
-                                              SelectionChanged="CustomPinyinPlacementCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Phía đối diện Taskbar chính" />
-                                        <ComboBoxItem Content="Màn hình thứ 2" />
-                                        <ComboBoxItem Content="Hiển thị trên cả hai màn hình" />
-                                        <ComboBoxItem Content="Không hiển thị (Tắt)" />
-                                    </ComboBox>
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Lựa chọn căn lề khi hiển thị trên Màn hình thứ 2"
-                                    Icon="{ui:SymbolIcon TextAlignJustify24}"
-                                    IsNested="True"
-                                    Title="Căn lề tại Màn hình thứ 2">
-                                    <ComboBox x:Name="CustomSecondaryAlignCombo"
-                                              SelectionChanged="CustomSecondaryAlignCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Căn giữa (Mặc định)" Tag="1" />
-                                        <ComboBoxItem Content="Căn trái" Tag="0" />
-                                        <ComboBoxItem Content="Căn phải" Tag="2" />
-                                    </ComboBox>
-                                </components:SettingsRow>
-                            </StackPanel>
-                        </ui:CardExpander>
-
-                        <!-- THẺ 2: HIỆU ỨNG KARAOKE, ANIMATION & MÀU SẮC -->
-                        <ui:CardExpander
-                            Margin="0,8,0,0"
-                            Header="Hiệu ứng Karaoke, Chuyển động &amp; Màu sắc"
-                            Icon="{ui:SymbolIcon MusicNote224}"
-                            IsExpanded="True">
-                            <StackPanel Margin="0,0,0,4">
-                                <components:SettingsRow
-                                    Description="Hiệu ứng chuyển động mượt mà khi đổi câu hát mới (giống lời bài hát gốc)"
-                                    Icon="{ui:SymbolIcon MoviesAndTv24}"
-                                    IsNested="True"
-                                    Title="Hiệu ứng chuyển câu bài hát">
-                                    <ComboBox x:Name="CustomAnimationModeCombo"
-                                              SelectionChanged="CustomAnimationModeCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Cuộn lên mượt mà (Slide Up - Mặc định)" Tag="0" />
-                                        <ComboBoxItem Content="Mờ dần êm ái (Fade Only)" Tag="1" />
-                                        <ComboBoxItem Content="Trượt ngang nhẹ (Slide Horizontal)" Tag="2" />
-                                        <ComboBoxItem Content="Thu phóng nhẹ (Zoom In 96% -> 100%)" Tag="3" />
-                                        <ComboBoxItem Content="Không hiệu ứng (Tức thì)" Tag="4" />
-                                    </ComboBox>
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Hiệu ứng hạt rơi, bay bổng phía sau khu vực lời bài hát (Zero CPU khi dừng phát)"
-                                    Icon="{ui:SymbolIcon Sparkle24}"
-                                    IsNested="True"
-                                    Title="Hiệu ứng hạt nền (Background Effect)">
-                                    <ComboBox x:Name="CustomBackgroundEffectCombo"
-                                              SelectionChanged="CustomBackgroundEffectCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Tắt hiệu ứng nền (Mặc định)" Tag="0" />
-                                        <ComboBoxItem Content="🌸 Hoa anh đào rơi &amp; bay (Sakura)" Tag="1" />
-                                        <ComboBoxItem Content="❄️ Tuyết rơi êm đềm (Snow)" Tag="2" />
-                                        <ComboBoxItem Content="🌧️ Mưa rơi xiên nhanh (Rain)" Tag="3" />
-                                        <ComboBoxItem Content="🍁 Lá thu rơi chao liệng (Autumn Leaves)" Tag="4" />
-                                        <ComboBoxItem Content="💡 Đom đóm phát sáng (Fireflies)" Tag="5" />
-                                        <ComboBoxItem Content="✨ Bụi sao lấp lánh (Starfield)" Tag="6" />
-                                        <ComboBoxItem Content="🫧 Bong bóng nổi bồng bềnh (Bubbles)" Tag="7" />
-                                        <ComboBoxItem Content="🌌 Dải cực quang mềm mại (Aurora Wave)" Tag="8" />
-                                    </ComboBox>
-                                </components:SettingsRow>
-
-                                <StackPanel x:Name="CustomBackgroundEffectSubPanel">
-                                    <components:SettingsRow
-                                        Description="Chọn khu vực áp dụng hiệu ứng hạt nền"
-                                        Icon="{ui:SymbolIcon Grid24}"
-                                        IsNested="True"
-                                        Title="Phạm vi hiển thị hiệu ứng">
-                                        <ComboBox x:Name="CustomBackgroundScopeCombo"
-                                                  SelectionChanged="CustomBackgroundScopeCombo_SelectionChanged"
-                                                  Width="260">
-                                            <ComboBoxItem Content="Cả Lời gốc Media Bar &amp; Lời dịch/Pinyin" Tag="0" />
-                                            <ComboBoxItem Content="Chỉ khu vực Lời dịch &amp; Pinyin" Tag="1" />
-                                            <ComboBoxItem Content="Chỉ khu vực Lời gốc Media Bar" Tag="2" />
-                                        </ComboBox>
-                                    </components:SettingsRow>
-
-                                    <components:SettingsRow
-                                        Description="Mật độ số lượng hạt chuyển động trong khung hiển thị"
-                                        Icon="{ui:SymbolIcon Sparkle24}"
-                                        IsNested="True"
-                                        Title="Mật độ hạt hiệu ứng">
-                                        <ComboBox x:Name="CustomBackgroundDensityCombo"
-                                                  SelectionChanged="CustomBackgroundDensityCombo_SelectionChanged"
-                                                  Width="260">
-                                            <ComboBoxItem Content="Thưa thớt, nhẹ nhàng (Tiết kiệm tài nguyên)" Tag="0" />
-                                            <ComboBoxItem Content="Vừa phải, hài hòa (Mặc định)" Tag="1" />
-                                            <ComboBoxItem Content="Dày đặc, sống động" Tag="2" />
-                                        </ComboBox>
-                                    </components:SettingsRow>
-
-                                    <components:SettingsRow
-                                        Description="Tốc độ chuyển động bay, rơi của các hạt hiệu ứng"
-                                        Icon="{ui:SymbolIcon TopSpeed24}"
-                                        IsNested="True"
-                                        Title="Tốc độ hiệu ứng">
-                                        <ComboBox x:Name="CustomBackgroundSpeedCombo"
-                                                  SelectionChanged="CustomBackgroundSpeedCombo_SelectionChanged"
-                                                  Width="260">
-                                            <ComboBoxItem Content="Chậm rãi, êm dịu" Tag="0" />
-                                            <ComboBoxItem Content="Tiêu chuẩn (Mặc định)" Tag="1" />
-                                            <ComboBoxItem Content="Nhanh, sinh động" Tag="2" />
-                                        </ComboBox>
-                                    </components:SettingsRow>
-
-                                    <components:SettingsRow
-                                        Description="Điều chỉnh độ mờ đục của hạt hiệu ứng để không làm chìm chữ lời bài hát"
-                                        Icon="{ui:SymbolIcon Eye24}"
-                                        IsNested="True"
-                                        Title="Độ trong suốt hiệu ứng">
-                                        <ComboBox x:Name="CustomBackgroundOpacityCombo"
-                                                  SelectionChanged="CustomBackgroundOpacityCombo_SelectionChanged"
-                                                  Width="260">
-                                            <ComboBoxItem Content="Mờ dịu (35%)" Tag="0.35" />
-                                            <ComboBoxItem Content="Nhẹ nhàng (50%)" Tag="0.50" />
-                                            <ComboBoxItem Content="Hài hòa (65% - Mặc định)" Tag="0.65" />
-                                            <ComboBoxItem Content="Rõ nét (80%)" Tag="0.80" />
-                                            <ComboBoxItem Content="Đậm đà (95%)" Tag="0.95" />
-                                        </ComboBox>
-                                    </components:SettingsRow>
-                                </StackPanel>
-
-                                <components:SettingsRow
-                                    Description="Bật hiệu ứng chạy màu chữ Karaoke theo giai điệu bài hát"
-                                    Icon="{ui:SymbolIcon MusicNote224}"
-                                    IsNested="True"
-                                    Title="Chạy chữ Karaoke (Karaoke Highlight)">
-                                    <ui:ToggleSwitch x:Name="CustomEnableKaraokeSwitch"
-                                                     Click="CustomEnableKaraokeSwitch_Click" />
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Tự động nhận diện và chỉ bật Karaoke khi bài hát có dữ liệu từng từ thực sự, bài hát thường sẽ tắt để tránh quét sai"
-                                    Icon="{ui:SymbolIcon Sparkle24}"
-                                    IsNested="True"
-                                    Title="Chỉ chạy Karaoke khi có dữ liệu từng từ">
-                                    <ui:ToggleSwitch x:Name="CustomOnlyKaraokeWhenAvailableSwitch"
-                                                     Click="CustomOnlyKaraokeWhenAvailableSwitch_Click" />
-                                </components:SettingsRow>
-
-                                <components:SettingsRow
-                                    Description="Chọn thành phần được áp dụng hiệu ứng chạy chữ Karaoke theo nhịp hát"
-                                    Icon="{ui:SymbolIcon Filter24}"
-                                    IsNested="True"
-                                    Title="Áp dụng chạy chữ Karaoke">
-                                    <ComboBox x:Name="CustomKaraokeTargetCombo"
-                                              SelectionChanged="CustomKaraokeTargetCombo_SelectionChanged"
-                                              Width="260">
-                                        <ComboBoxItem Content="Áp dụng cho cả Lời dịch và Pinyin" Tag="0" />
-                                        <ComboBoxItem Content="Chỉ áp dụng cho Pinyin (Chuẩn xác theo từng từ)" Tag="1" />
-                                        <ComboBoxItem Content="Chỉ áp dụng cho Lời dịch" Tag="2" />
-                                    </ComboBox>
                                 </components:SettingsRow>
 
                                 <components:SettingsRow
@@ -806,7 +765,7 @@
                                     Title="Màu sắc Lời dịch">
                                     <ComboBox x:Name="CustomTransColorCombo"
                                               SelectionChanged="CustomTransColorCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="Trắng sáng (#FFFFFF)" Tag="#FFFFFF" />
                                         <ComboBoxItem Content="Đen huyền (#18181B)" Tag="#18181B" />
                                         <ComboBoxItem Content="Đen tuyền (#000000)" Tag="#000000" />
@@ -824,7 +783,7 @@
                                     Title="Màu sắc Pinyin">
                                     <ComboBox x:Name="CustomPinyinColorCombo"
                                               SelectionChanged="CustomPinyinColorCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="Vàng kim (#FFD54F)" Tag="#FFD54F" />
                                         <ComboBoxItem Content="Trắng sáng (#FFFFFF)" Tag="#FFFFFF" />
                                         <ComboBoxItem Content="Đen huyền (#18181B)" Tag="#18181B" />
@@ -834,14 +793,62 @@
                                         <ComboBoxItem Content="Cam ấm (#FFB74D)" Tag="#FFB74D" />
                                     </ComboBox>
                                 </components:SettingsRow>
+                            </StackPanel>
+                        </ui:CardExpander>
+
+                        <!-- THẺ 5: HIỆU ỨNG CHUYỂN CÂU, CHẠY CHỮ & HẠT NỀN -->
+                        <ui:CardExpander
+                            Margin="0,8,0,0"
+                            Header="Hiệu ứng Chuyển câu, Chạy chữ &amp; Hạt nền"
+                            Icon="{ui:SymbolIcon MoviesAndTv24}"
+                            IsExpanded="False">
+                            <StackPanel Margin="0,0,0,4">
+                                <components:SettingsRow
+                                    Description="Hiệu ứng chuyển động mượt mà khi đổi câu hát mới (giống lời bài hát gốc)"
+                                    Icon="{ui:SymbolIcon MoviesAndTv24}"
+                                    IsNested="True"
+                                    Title="Hiệu ứng chuyển câu bài hát">
+                                    <ComboBox x:Name="CustomAnimationModeCombo"
+                                              SelectionChanged="CustomAnimationModeCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Cuộn lên mượt mà (Slide Up - Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="Mờ dần êm ái (Fade Only)" Tag="1" />
+                                        <ComboBoxItem Content="Trượt ngang nhẹ (Slide Horizontal)" Tag="2" />
+                                        <ComboBoxItem Content="Thu phóng nhẹ (Zoom In 96% -> 100%)" Tag="3" />
+                                        <ComboBoxItem Content="Không hiệu ứng (Tức thì)" Tag="4" />
+                                    </ComboBox>
+                                </components:SettingsRow>
 
                                 <components:SettingsRow
-                                    Description="Không hiển thị bản dịch khi bài hát gốc vốn đã là Tiếng Việt để tránh trùng lặp"
-                                    Icon="{ui:SymbolIcon CheckmarkCircle24}"
+                                    Description="Bật hiệu ứng chạy màu chữ Karaoke theo giai điệu bài hát"
+                                    Icon="{ui:SymbolIcon MusicNote224}"
                                     IsNested="True"
-                                    Title="Bỏ qua dịch khi lời gốc là Tiếng Việt">
-                                    <ui:ToggleSwitch x:Name="CustomAutoSkipVietnameseSwitch"
-                                                     Click="CustomAutoSkipVietnameseSwitch_Click" />
+                                    Title="Chạy chữ Karaoke (Karaoke Highlight)">
+                                    <ui:ToggleSwitch x:Name="CustomEnableKaraokeSwitch"
+                                                     Click="CustomEnableKaraokeSwitch_Click" />
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Tự động nhận diện và chỉ bật Karaoke khi bài hát có dữ liệu từng từ thực sự"
+                                    Icon="{ui:SymbolIcon Sparkle24}"
+                                    IsNested="True"
+                                    Title="Chỉ chạy Karaoke khi có dữ liệu từng từ">
+                                    <ui:ToggleSwitch x:Name="CustomOnlyKaraokeWhenAvailableSwitch"
+                                                     Click="CustomOnlyKaraokeWhenAvailableSwitch_Click" />
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Chọn thành phần được áp dụng hiệu ứng chạy chữ Karaoke theo nhịp hát"
+                                    Icon="{ui:SymbolIcon Filter24}"
+                                    IsNested="True"
+                                    Title="Áp dụng chạy chữ Karaoke">
+                                    <ComboBox x:Name="CustomKaraokeTargetCombo"
+                                              SelectionChanged="CustomKaraokeTargetCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Áp dụng cho cả Lời dịch và Pinyin" Tag="0" />
+                                        <ComboBoxItem Content="Chỉ áp dụng cho Pinyin (Chuẩn xác theo từng từ)" Tag="1" />
+                                        <ComboBoxItem Content="Chỉ áp dụng cho Lời dịch" Tag="2" />
+                                    </ComboBox>
                                 </components:SettingsRow>
 
                                 <components:SettingsRow
@@ -869,15 +876,95 @@
                                         Step="50"
                                         Unit="ms" />
                                 </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Hiệu ứng hạt rơi, bay bổng phía sau khu vực lời bài hát (Zero CPU khi dừng phát)"
+                                    Icon="{ui:SymbolIcon Sparkle24}"
+                                    IsNested="True"
+                                    Title="Hiệu ứng hạt nền (Background Effect)">
+                                    <ComboBox x:Name="CustomBackgroundEffectCombo"
+                                              SelectionChanged="CustomBackgroundEffectCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Tắt hiệu ứng nền (Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="🌸 Hoa anh đào rơi &amp; bay (Sakura)" Tag="1" />
+                                        <ComboBoxItem Content="❄️ Tuyết rơi êm đềm (Snow)" Tag="2" />
+                                        <ComboBoxItem Content="🌧️ Mưa rơi xiên nhanh (Rain)" Tag="3" />
+                                        <ComboBoxItem Content="🍁 Lá thu rơi chao liệng (Autumn Leaves)" Tag="4" />
+                                        <ComboBoxItem Content="💡 Đom đóm phát sáng (Fireflies)" Tag="5" />
+                                        <ComboBoxItem Content="✨ Bụi sao lấp lánh (Starfield)" Tag="6" />
+                                        <ComboBoxItem Content="🫧 Bong bóng nổi bồng bềnh (Bubbles)" Tag="7" />
+                                        <ComboBoxItem Content="🌌 Dải cực quang mềm mại (Aurora Wave)" Tag="8" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <StackPanel x:Name="CustomBackgroundEffectSubPanel">
+                                    <components:SettingsRow
+                                        Description="Chọn khu vực áp dụng hiệu ứng hạt nền"
+                                        Icon="{ui:SymbolIcon Grid24}"
+                                        IsNested="True"
+                                        Title="Phạm vi hiển thị hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundScopeCombo"
+                                                  SelectionChanged="CustomBackgroundScopeCombo_SelectionChanged"
+                                                  Width="280">
+                                            <ComboBoxItem Content="Cả Lời gốc Media Bar &amp; Lời dịch/Pinyin" Tag="0" />
+                                            <ComboBoxItem Content="Chỉ khu vực Lời dịch &amp; Pinyin" Tag="1" />
+                                            <ComboBoxItem Content="Chỉ khu vực Lời gốc Media Bar" Tag="2" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Mật độ số lượng hạt chuyển động trong khung hiển thị"
+                                        Icon="{ui:SymbolIcon Sparkle24}"
+                                        IsNested="True"
+                                        Title="Mật độ hạt hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundDensityCombo"
+                                                  SelectionChanged="CustomBackgroundDensityCombo_SelectionChanged"
+                                                  Width="280">
+                                            <ComboBoxItem Content="Thưa thớt, nhẹ nhàng (Tiết kiệm tài nguyên)" Tag="0" />
+                                            <ComboBoxItem Content="Vừa phải, hài hòa (Mặc định)" Tag="1" />
+                                            <ComboBoxItem Content="Dày đặc, sống động" Tag="2" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Tốc độ chuyển động bay, rơi của các hạt hiệu ứng"
+                                        Icon="{ui:SymbolIcon TopSpeed24}"
+                                        IsNested="True"
+                                        Title="Tốc độ hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundSpeedCombo"
+                                                  SelectionChanged="CustomBackgroundSpeedCombo_SelectionChanged"
+                                                  Width="280">
+                                            <ComboBoxItem Content="Chậm rãi, êm dịu" Tag="0" />
+                                            <ComboBoxItem Content="Tiêu chuẩn (Mặc định)" Tag="1" />
+                                            <ComboBoxItem Content="Nhanh, sinh động" Tag="2" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Điều chỉnh độ mờ đục của hạt hiệu ứng để không làm chìm chữ lời bài hát"
+                                        Icon="{ui:SymbolIcon Eye24}"
+                                        IsNested="True"
+                                        Title="Độ trong suốt hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundOpacityCombo"
+                                                  SelectionChanged="CustomBackgroundOpacityCombo_SelectionChanged"
+                                                  Width="280">
+                                            <ComboBoxItem Content="Mờ dịu (35%)" Tag="0.35" />
+                                            <ComboBoxItem Content="Nhẹ nhàng (50%)" Tag="0.50" />
+                                            <ComboBoxItem Content="Hài hòa (65% - Mặc định)" Tag="0.65" />
+                                            <ComboBoxItem Content="Rõ nét (80%)" Tag="0.80" />
+                                            <ComboBoxItem Content="Đậm đà (95%)" Tag="0.95" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+                                </StackPanel>
                             </StackPanel>
                         </ui:CardExpander>
 
-                        <!-- THẺ 3: NGUỒN DỊCH THUẬT & AI (GEMINI / DEEPSEEK) -->
+                        <!-- THẺ 6: NGUỒN DỊCH THUẬT & AI (GEMINI / DEEPSEEK) -->
                         <ui:CardExpander
                             Margin="0,8,0,0"
                             Header="Nguồn Dịch Thuật &amp; AI (Gemini / DeepSeek)"
                             Icon="{ui:SymbolIcon Brain24}"
-                            IsExpanded="True">
+                            IsExpanded="False">
                             <StackPanel Margin="0,0,0,4">
                                 <components:SettingsRow
                                     Description="Lựa chọn công cụ dịch: Nguồn miễn phí hoặc AI thông minh dịch theo cảm xúc bài hát"
@@ -886,7 +973,7 @@
                                     Title="Bộ dịch thuật sử dụng">
                                     <ComboBox x:Name="CustomTranslationProviderCombo"
                                               SelectionChanged="CustomTranslationProviderCombo_SelectionChanged"
-                                              Width="260">
+                                              Width="280">
                                         <ComboBoxItem Content="Google Dịch (Miễn phí, không cần Key - Mặc định)" Tag="0" />
                                         <ComboBoxItem Content="Nguồn Free dự phòng (MyMemory - Không cần Key)" Tag="1" />
                                         <ComboBoxItem Content="Google Gemini AI (Dịch cảm xúc, cần API Key)" Tag="2" />
@@ -902,27 +989,29 @@
                                         IsNested="True"
                                         Title="Gemini API Key">
                                         <TextBox x:Name="CustomGeminiApiKeyBox"
-                                                 Width="260" />
+                                                 Width="280" />
                                     </components:SettingsRow>
 
                                     <components:SettingsRow
-                                        Description="Chọn model Gemini xử lý dịch thuật lời bài hát"
-                                        Icon="{ui:SymbolIcon Bot24}"
+                                        Description="Lựa chọn Model Gemini phù hợp với nhu cầu"
+                                        Icon="{ui:SymbolIcon Brain24}"
                                         IsNested="True"
                                         Title="Mô hình Gemini (Model)">
                                         <ComboBox x:Name="CustomGeminiModelCombo"
                                                   SelectionChanged="CustomGeminiModelCombo_SelectionChanged"
-                                                  Width="260">
+                                                  Width="280">
                                             <ComboBoxItem Content="Gemini 3.5 Flash (Khuyên dùng, dịch chuẩn &amp; mượt)" Tag="gemini-3.5-flash" />
-                                            <ComboBoxItem Content="Gemini 3.5 Flash Lite (Siêu nhanh, tiết kiệm)" Tag="gemini-3.5-flash-lite" />
-                                            <ComboBoxItem Content="Gemini 3.8 Flash (Mô hình mới nhất)" Tag="gemini-3.8-flash" />
-                                            <ComboBoxItem Content="Gemini 3.1 Pro (Dịch chuyên sâu)" Tag="gemini-3.1-pro-preview" />
+                                            <ComboBoxItem Content="Gemini 2.5 Flash" Tag="gemini-2.5-flash" />
+                                            <ComboBoxItem Content="Gemini 2.5 Pro (Dịch chuyên sâu, giàu cảm xúc)" Tag="gemini-2.5-pro" />
+                                            <ComboBoxItem Content="Gemini 2.0 Flash" Tag="gemini-2.0-flash" />
+                                            <ComboBoxItem Content="Gemini 1.5 Pro (Độ chính xác cao)" Tag="gemini-1.5-pro" />
+                                            <ComboBoxItem Content="Gemini 1.5 Flash (Tốc độ nhanh nhất)" Tag="gemini-1.5-flash" />
                                         </ComboBox>
                                     </components:SettingsRow>
 
                                     <components:SettingsRow
-                                        Description="Gửi một câu dịch thử nghiệm để kiểm tra tính hợp lệ của API Key"
-                                        Icon="{ui:SymbolIcon ArrowSync24}"
+                                        Description="Gửi yêu cầu thử nghiệm tới Google để xác nhận API Key hoạt động chính xác"
+                                        Icon="{ui:SymbolIcon Sparkle24}"
                                         IsNested="True"
                                         Title="Kiểm tra kết nối Gemini">
                                         <ui:Button x:Name="CustomTestGeminiBtn"
@@ -941,25 +1030,25 @@
                                         IsNested="True"
                                         Title="Base URL">
                                         <TextBox x:Name="CustomOpenAIBaseUrlBox"
-                                                 Width="260" />
+                                                 Width="280" />
                                     </components:SettingsRow>
 
                                     <components:SettingsRow
-                                        Description="Khóa API xác thực từ nhà cung cấp (OpenAI / DeepSeek / Groq)"
+                                        Description="Khóa API OpenAI hoặc DeepSeek API Key"
                                         Icon="{ui:SymbolIcon Key24}"
                                         IsNested="True"
                                         Title="API Key">
                                         <TextBox x:Name="CustomOpenAIApiKeyBox"
-                                                 Width="260" />
+                                                 Width="280" />
                                     </components:SettingsRow>
 
                                     <components:SettingsRow
-                                        Description="Tên mô hình AI (Ví dụ: gpt-4o-mini, deepseek-chat, llama-3.3-70b-versatile)"
-                                        Icon="{ui:SymbolIcon Bot24}"
+                                        Description="Tên định danh Model (ví dụ: deepseek-chat, gpt-4o-mini, gpt-3.5-turbo...)"
+                                        Icon="{ui:SymbolIcon DocumentBulletListMultiple24}"
                                         IsNested="True"
                                         Title="Tên mô hình (Model)">
                                         <TextBox x:Name="CustomOpenAIModelBox"
-                                                 Width="260" />
+                                                 Width="280" />
                                     </components:SettingsRow>
                                 </StackPanel>
                             </StackPanel>

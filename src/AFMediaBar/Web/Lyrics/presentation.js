@@ -295,6 +295,18 @@
       }
 
       if (target.scene === SCENES.LYRICS && current.scene === SCENES.LYRICS) {
+        // NẾU CÙNG VĂN BẢN (current.current === target.current): TUYỆT ĐỐI KHÔNG ĐƯỢC CUỘN LẠI!
+        // Tránh lỗi lặp lại chính câu hát đó một lần nữa
+        if (current.current === target.current) {
+          return makePlan(
+            current.layout === target.layout && current.wordScanProgress !== null
+              ? TRANSITIONS.PROGRESS_PATCH
+              : TRANSITIONS.REPLACE_IN_PLACE,
+            current,
+            target,
+            0);
+        }
+
         const isTranslationPair = target.layout === LAYOUTS.TRANSLATION_PAIR;
         return makePlan(
           isTranslationPair

@@ -43,27 +43,35 @@ public partial class TaskBarMediaControl
         var cross = _isVertical ? MainBorder.Width : MainBorder.Height;
 
         var customSettings = CustomSettingsManager.Instance.Current;
-        bool isCustomTwoLines = customSettings.MediaBarPrimaryContent switch
+        bool isCustomTwoLines = false;
+        if (customSettings.MediaBarLine2 != LyricContentType.None)
         {
-            MediaBarLyricsDisplayMode.OriginalAndRomanization => true,
-            MediaBarLyricsDisplayMode.OriginalAndTranslation => true,
-            MediaBarLyricsDisplayMode.OriginalAndNextLine => true,
-            _ => false
-        };
+            isCustomTwoLines = true;
+        }
+        else
+        {
+            isCustomTwoLines = customSettings.MediaBarPrimaryContent switch
+            {
+                MediaBarLyricsDisplayMode.OriginalAndRomanization => true,
+                MediaBarLyricsDisplayMode.OriginalAndTranslation => true,
+                MediaBarLyricsDisplayMode.OriginalAndNextLine => true,
+                _ => false
+            };
 
-        if (!isCustomTwoLines && customSettings.MediaBarPrimaryContent == MediaBarLyricsDisplayMode.Original)
-        {
-            if (BilingualLyricsManager.ActiveIsVietnamese && customSettings.VietnameseSecondaryMode == VietnameseSecondaryMode.CombinedOnMediaBar)
+            if (!isCustomTwoLines && customSettings.MediaBarPrimaryContent == MediaBarLyricsDisplayMode.Original)
             {
-                isCustomTwoLines = true;
-            }
-            else if (PresentationSettings.TwoLineLyricsEnabled)
-            {
-                isCustomTwoLines = true;
+                if (BilingualLyricsManager.ActiveIsVietnamese && customSettings.VietnameseSecondaryMode == VietnameseSecondaryMode.CombinedOnMediaBar)
+                {
+                    isCustomTwoLines = true;
+                }
             }
         }
 
-        bool forceKeepSecondary = raw.IsVisible && (isCustomTwoLines || raw.TranslationMode || !string.IsNullOrWhiteSpace(raw.Next) || !string.IsNullOrWhiteSpace(raw.CurrentTranslation));
+        bool forceKeepSecondary = false;
+        if (customSettings.EnableBilingualLyrics)
+        {
+            forceKeepSecondary = raw.IsVisible && isCustomTwoLines && (raw.TranslationMode || !string.IsNullOrWhiteSpace(raw.Next) || !string.IsNullOrWhiteSpace(raw.CurrentTranslation));
+        }
 
         var budget = UsesAdaptiveTaskbarText ? SmallTaskbarPresentationPolicy.Resolve(cross, _isVertical, primary, secondary, gap, forceKeepSecondary)
             : new TaskbarTextBudget(1, 2, false);

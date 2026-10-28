@@ -250,7 +250,8 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         // Điều phối nội dung tới Taskbar chính hoặc Màn hình 2
-        DispatchContent(translation, transProgress, pinyin, pinyinProgress, nextText, settings);
+
+        DispatchContent(currLine?.Text, translation, transProgress, pinyin, pinyinProgress, nextText, settings);
     }
 
     /// <summary>
@@ -367,7 +368,27 @@ public sealed class DualOverlayCoordinator : IDisposable
         return Math.Clamp((currentSeconds - line.Start) / lineDuration, 0.0, 1.0);
     }
 
+    private static (string? text, double progress, bool isPinyin) ResolveCustomContentType(
+        LyricContentType type,
+        string? original,
+        string? translation, double transProgress,
+        string? pinyin, double pinyinProgress,
+        string? nextLine)
+    {
+        return type switch
+        {
+            LyricContentType.Original => (original, 1.0, false),
+            LyricContentType.Translation => (translation, transProgress, false),
+            LyricContentType.Romanization => (pinyin, pinyinProgress, true),
+            LyricContentType.NextLine => (nextLine, 1.0, false),
+            _ => (null, 1.0, false)
+        };
+    }
+
     private void DispatchContent(
+
+        string? originalText,
+
         string? translation, double transProgress,
         string? pinyin, double pinyinProgress,
         string? nextLineText,
@@ -392,26 +413,36 @@ public sealed class DualOverlayCoordinator : IDisposable
             }
         }
 
-        var mediaBarMode = settings.MediaBarPrimaryContent;
-
-        // Khử trùng lặp nội dung: Nếu Media Bar đã hiển thị thành phần nào thì Taskbar phụ không lặp lại thành phần đó
+// Khử trùng lặp nội dung: Nếu Media Bar đã hiển thị thành phần nào thì Taskbar phụ không lặp lại thành phần đó
         bool allowNextLineOnSecondary = true;
         bool allowTransOnSecondary = true;
         bool allowPinyinOnSecondary = true;
 
-        switch (mediaBarMode)
+        if (settings.MediaBarLine1 != LyricContentType.None || settings.MediaBarLine2 != LyricContentType.None)
         {
-            case MediaBarLyricsDisplayMode.OriginalAndNextLine:
+            if (settings.MediaBarLine1 == LyricContentType.NextLine || settings.MediaBarLine2 == LyricContentType.NextLine)
                 allowNextLineOnSecondary = false;
-                break;
-            case MediaBarLyricsDisplayMode.OriginalAndTranslation:
-            case MediaBarLyricsDisplayMode.Translation:
+            if (settings.MediaBarLine1 == LyricContentType.Translation || settings.MediaBarLine2 == LyricContentType.Translation)
                 allowTransOnSecondary = false;
-                break;
-            case MediaBarLyricsDisplayMode.OriginalAndRomanization:
-            case MediaBarLyricsDisplayMode.Romanization:
+            if (settings.MediaBarLine1 == LyricContentType.Romanization || settings.MediaBarLine2 == LyricContentType.Romanization)
                 allowPinyinOnSecondary = false;
-                break;
+        }
+        else
+        {
+            switch (settings.MediaBarPrimaryContent)
+            {
+                case MediaBarLyricsDisplayMode.OriginalAndNextLine:
+                    allowNextLineOnSecondary = false;
+                    break;
+                case MediaBarLyricsDisplayMode.OriginalAndTranslation:
+                case MediaBarLyricsDisplayMode.Translation:
+                    allowTransOnSecondary = false;
+                    break;
+                case MediaBarLyricsDisplayMode.OriginalAndRomanization:
+                case MediaBarLyricsDisplayMode.Romanization:
+                    allowPinyinOnSecondary = false;
+                    break;
+            }
         }
 
         // 1. Phân bổ cho Primary Taskbar Window
@@ -429,7 +460,25 @@ public sealed class DualOverlayCoordinator : IDisposable
         double primaryProgress1 = 1.0;
         double primaryProgress2 = 1.0;
 
-        if (_isCurrentTrackVietnamese)
+        if (!settings.SecondaryUseAuto)
+        {
+            // Người dùng chọn chế độ Tùy chỉnh dòng riêng cho vị trí còn lại
+            (primaryLine1, primaryProgress1, bool isP1) = ResolveCustomContentType(
+                settings.SecondaryLine1, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+            (primaryLine2, primaryProgress2, bool isP2) = ResolveCustomContentType(
+                settings.SecondaryLine2, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+            isPrimaryPinyin = isP1 || isP2;
+
+            if (string.IsNullOrWhiteSpace(primaryLine1) && !string.IsNullOrWhiteSpace(primaryLine2))
+            {
+                primaryLine1 = primaryLine2;
+                primaryProgress1 = primaryProgress2;
+                isPrimaryPinyin = isP2;
+                primaryLine2 = null;
+                primaryProgress2 = 1.0;
+            }
+        }
+        else if (_isCurrentTrackVietnamese)
         {
             // Bài hát Tiếng Việt:
             // Chỉ hiển thị câu kế tiếp ở Taskbar phụ khi chọn chế độ SeparateSides (Tách ra 2 bên) VÀ Media Bar không hiển thị câu kế tiếp
@@ -446,7 +495,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
         else
         {
-            // Bài hát Nước ngoài
+            // Bài hát Nước ngoài (Tự động)
             if (allowNextLineOnSecondary && settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
             {
                 primaryLine1 = nextLineText;
@@ -544,7 +593,24 @@ public sealed class DualOverlayCoordinator : IDisposable
             double secProgress1 = 1.0;
             double secProgress2 = 1.0;
 
-            if (_isCurrentTrackVietnamese)
+            if (!settings.SecondaryUseAuto)
+            {
+                (secLine1, secProgress1, bool isSecP1) = ResolveCustomContentType(
+                    settings.SecondaryLine1, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+                (secLine2, secProgress2, bool isSecP2) = ResolveCustomContentType(
+                    settings.SecondaryLine2, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+                isSecPinyin = isSecP1 || isSecP2;
+
+                if (string.IsNullOrWhiteSpace(secLine1) && !string.IsNullOrWhiteSpace(secLine2))
+                {
+                    secLine1 = secLine2;
+                    secProgress1 = secProgress2;
+                    isSecPinyin = isSecP2;
+                    secLine2 = null;
+                    secProgress2 = 1.0;
+                }
+            }
+            else if (_isCurrentTrackVietnamese)
             {
                 if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.SeparateSides &&
                     allowNextLineOnSecondary &&

@@ -99,7 +99,12 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
             TranslationOffsetMs = settings.TranslationOffsetMs;
             RomanizationOffsetMs = settings.RomanizationOffsetMs;
 
-            CustomMediaBarPrimaryCombo.SelectedIndex = (int)settings.MediaBarPrimaryContent;
+            SelectEnumTagInCombo(CustomMediaBarLine1Combo, (int)settings.MediaBarLine1);
+            SelectEnumTagInCombo(CustomMediaBarLine2Combo, (int)settings.MediaBarLine2);
+            CustomSecondaryModeCombo.SelectedIndex = settings.SecondaryUseAuto ? 0 : 1;
+            CustomSecondaryCustomLinesPanel.Visibility = settings.SecondaryUseAuto ? Visibility.Collapsed : Visibility.Visible;
+            SelectEnumTagInCombo(CustomSecondaryLine1Combo, (int)settings.SecondaryLine1);
+            SelectEnumTagInCombo(CustomSecondaryLine2Combo, (int)settings.SecondaryLine2);
             CustomVietnameseSecondaryCombo.SelectedIndex = (int)settings.VietnameseSecondaryMode;
             CustomForeignSecondaryCombo.SelectedIndex = (int)settings.ForeignSecondaryMode;
             CustomForeignCompanionCombo.SelectedIndex = (int)settings.ForeignNextLineCompanion;
@@ -131,6 +136,21 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     {
         CustomGeminiPanel.Visibility = provider == TranslationProviderType.GeminiAI ? Visibility.Visible : Visibility.Collapsed;
         CustomOpenAIPanel.Visibility = provider == TranslationProviderType.OpenAICompatible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static void SelectEnumTagInCombo(System.Windows.Controls.ComboBox combo, int tagValue)
+    {
+        string target = tagValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is System.Windows.Controls.ComboBoxItem item &&
+                string.Equals(item.Tag?.ToString(), target, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+        if (combo.Items.Count > 0 && combo.SelectedIndex < 0) combo.SelectedIndex = 0;
     }
 
     private static void SelectGeminiModelInCombo(System.Windows.Controls.ComboBox combo, string? model)
@@ -446,12 +466,59 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     }
 
     
-    private void CustomMediaBarPrimaryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void CustomMediaBarLine1Combo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isInitializing) return;
-        if (CustomMediaBarPrimaryCombo.SelectedIndex >= 0)
+        if (CustomMediaBarLine1Combo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
         {
-            CustomSettings.Current.MediaBarPrimaryContent = (MediaBarLyricsDisplayMode)CustomMediaBarPrimaryCombo.SelectedIndex;
+            CustomSettings.Current.MediaBarLine1 = (LyricContentType)val;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomMediaBarLine2Combo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomMediaBarLine2Combo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.MediaBarLine2 = (LyricContentType)val;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomSecondaryModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomSecondaryModeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            bool isAuto = (val == 1);
+            CustomSettings.Current.SecondaryUseAuto = isAuto;
+            CustomSecondaryCustomLinesPanel.Visibility = isAuto ? Visibility.Collapsed : Visibility.Visible;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomSecondaryLine1Combo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomSecondaryLine1Combo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.SecondaryLine1 = (LyricContentType)val;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomSecondaryLine2Combo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomSecondaryLine2Combo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.SecondaryLine2 = (LyricContentType)val;
             CustomSettings.SaveSettings();
         }
     }

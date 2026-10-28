@@ -769,11 +769,13 @@ function finalizeTransition(
   updateSecondaryOpacity(progress);
   void trackEl.offsetHeight;
   trackEl.classList.remove("no-anim");
+  const trackIdToKeep = targetFrame?.trackId || presentationCoordinator.currentFrame?.trackId || '';
   presentationCoordinator.setCurrentFrame(targetFrame || createPresentationFrame({
     current: promotedCurrent,
     next: upcomingNext,
     progress,
     currentLineIndex: promotedLineIndex,
+    trackId: trackIdToKeep,
     wordScanProgress,
     scrollProgress
   }));
@@ -813,6 +815,12 @@ function startTransition(
   });
   if (presentationCoordinator.isTransitioning) {
     presentationCoordinator.queueLatest(resolvedTargetFrame);
+    return;
+  }
+
+  // Nếu câu hiện tại đang hiển thị đã là câu này và cùng lineIndex, không kích hoạt transition cuộn lại câu đó
+  if (displayedCurrent === newCurrent && lastCurrentLineIndex === currentLineIndex && currentLineIndex >= 0) {
+    applyProgressPatch(resolvedTargetFrame);
     return;
   }
 
@@ -863,6 +871,7 @@ function finalizeTranslationPairTransition(
   clearIncomingTranslationPair();
   void trackEl.offsetHeight;
   trackEl.classList.remove("no-anim");
+  const trackIdToKeepPair = targetFrame?.trackId || presentationCoordinator.currentFrame?.trackId || '';
   presentationCoordinator.setCurrentFrame(targetFrame || createPresentationFrame({
     scene: presentationApi.SCENES.LYRICS,
     layout: presentationApi.LAYOUTS.TRANSLATION_PAIR,
@@ -870,6 +879,7 @@ function finalizeTranslationPairTransition(
     currentTranslation: promotedTranslation,
     progress,
     currentLineIndex: promotedLineIndex,
+    trackId: trackIdToKeepPair,
     wordScanProgress,
     scrollProgress,
     translationMode: true
