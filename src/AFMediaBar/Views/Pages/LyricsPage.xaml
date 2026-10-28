@@ -517,7 +517,33 @@
                             </ComboBox>
                         </components:SettingsRow>
 
-                        <!-- 8. Màu sắc chữ Lời dịch -->
+                                                <!-- 8. Thời gian hiển thị Lời dịch (Sớm/Trễ) -->
+                        <components:SettingsRow
+                            Description="Bù trừ thời gian hiển thị Lời dịch: Số dương (+) hiển thị sớm hơn, số âm (-) hiển thị trễ hơn"
+                            Icon="{ui:SymbolIcon Timer24}"
+                            Title="Thời gian hiển thị Lời dịch">
+                            <components:SettingsNumericEditor
+                                Value="{Binding TranslationOffsetMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                Minimum="-3000"
+                                Maximum="3000"
+                                Step="50"
+                                Unit="ms" />
+                        </components:SettingsRow>
+
+                        <!-- 9. Thời gian hiển thị Pinyin (Sớm/Trễ) -->
+                        <components:SettingsRow
+                            Description="Bù trừ thời gian hiển thị Pinyin: Số dương (+) hiển thị sớm hơn, số âm (-) hiển thị trễ hơn"
+                            Icon="{ui:SymbolIcon Timer24}"
+                            Title="Thời gian hiển thị Pinyin">
+                            <components:SettingsNumericEditor
+                                Value="{Binding RomanizationOffsetMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                Minimum="-3000"
+                                Maximum="3000"
+                                Step="50"
+                                Unit="ms" />
+                        </components:SettingsRow>
+
+                        <!-- 10. Màu sắc chữ Lời dịch -->
                         <components:SettingsRow
                             Description="Tùy chỉnh màu sắc chữ cho dòng lời dịch Tiếng Việt (khi tắt tự động theo nền)"
                             Icon="{ui:SymbolIcon Color24}"
@@ -535,7 +561,7 @@
                             </ComboBox>
                         </components:SettingsRow>
 
-                        <!-- 9. Màu sắc chữ Pinyin -->
+                        <!-- 11. Màu sắc chữ Pinyin -->
                         <components:SettingsRow
                             Description="Tùy chỉnh màu sắc chữ cho dòng Pinyin / Phiên âm (khi tắt tự động theo nền)"
                             Icon="{ui:SymbolIcon Color24}"
@@ -553,7 +579,7 @@
                             </ComboBox>
                         </components:SettingsRow>
 
-                        <!-- 10. Tự động ẩn khi bài hát là Tiếng Việt -->
+                        <!-- 12. Tự động ẩn khi bài hát là Tiếng Việt -->
                         <components:SettingsRow
                             Description="Không hiển thị bản dịch khi bài hát gốc vốn đã là Tiếng Việt để tránh trùng lặp"
                             Icon="{ui:SymbolIcon CheckmarkCircle24}"

@@ -14,6 +14,40 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     public LyricsViewModel ViewModel { get; }
     public CustomSettingsManager CustomSettings { get; }
 
+    public static readonly DependencyProperty TranslationOffsetMsProperty = DependencyProperty.Register(
+        nameof(TranslationOffsetMs), typeof(double), typeof(LyricsPage),
+        new FrameworkPropertyMetadata(0.0, (d, e) =>
+        {
+            if (d is LyricsPage page && e.NewValue is double val)
+            {
+                page.CustomSettings.Current.TranslationOffsetMs = (int)Math.Round(val);
+                page.CustomSettings.SaveSettings();
+            }
+        }));
+
+    public double TranslationOffsetMs
+    {
+        get => (double)GetValue(TranslationOffsetMsProperty);
+        set => SetValue(TranslationOffsetMsProperty, value);
+    }
+
+    public static readonly DependencyProperty RomanizationOffsetMsProperty = DependencyProperty.Register(
+        nameof(RomanizationOffsetMs), typeof(double), typeof(LyricsPage),
+        new FrameworkPropertyMetadata(0.0, (d, e) =>
+        {
+            if (d is LyricsPage page && e.NewValue is double val)
+            {
+                page.CustomSettings.Current.RomanizationOffsetMs = (int)Math.Round(val);
+                page.CustomSettings.SaveSettings();
+            }
+        }));
+
+    public double RomanizationOffsetMs
+    {
+        get => (double)GetValue(RomanizationOffsetMsProperty);
+        set => SetValue(RomanizationOffsetMsProperty, value);
+    }
+
     public LyricsPage(LyricsViewModel viewModel, CustomSettingsManager? customSettings = null)
     {
         ViewModel = viewModel;
@@ -36,6 +70,9 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         CustomTransPlacementCombo.SelectedIndex = (int)settings.TranslationPlacement;
         CustomPinyinPlacementCombo.SelectedIndex = (int)settings.RomanizationPlacement;
         CustomSecondaryAlignCombo.SelectedIndex = (int)settings.SecondaryAlignment;
+
+        TranslationOffsetMs = settings.TranslationOffsetMs;
+        RomanizationOffsetMs = settings.RomanizationOffsetMs;
 
         SelectFontSizeInCombo(CustomFontSizeCombo, settings.FontSize);
         SelectColorInCombo(CustomTransColorCombo, settings.TranslationColor);

@@ -75,6 +75,12 @@ public sealed class CustomSettings
     /// <summary>Bật/tắt hiệu ứng chạy chữ Karaoke (Karaoke Wipe Highlight) theo tiến độ bài hát.</summary>
     public bool EnableKaraokeHighlight { get; set; } = true;
 
+    /// <summary>Độ lệch thời gian hiển thị Lời dịch Tiếng Việt (ms). Dương = Sớm hơn, Âm = Trễ hơn.</summary>
+    public int TranslationOffsetMs { get; set; } = 0;
+
+    /// <summary>Độ lệch thời gian hiển thị Pinyin / Phiên âm (ms). Dương = Sớm hơn, Âm = Trễ hơn.</summary>
+    public int RomanizationOffsetMs { get; set; } = 0;
+
     /// <summary>Cỡ chữ hiển thị (DIP).</summary>
     public double FontSize { get; set; } = 11.5;
 

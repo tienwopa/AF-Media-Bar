@@ -24,7 +24,8 @@ public partial class DualTaskbarSecondaryWindow : Window
     private string _currentPrimaryText = string.Empty;
     private string? _currentSecondaryText;
     private bool _currentIsPrimaryPinyin;
-    private double _currentProgress = 1.0;
+    private double _currentPrimaryProgress = 1.0;
+    private double _currentSecondaryProgress = 1.0;
 
     public DualTaskbarSecondaryWindow(
         ITaskbarDockService dockService,
@@ -58,7 +59,7 @@ public partial class DualTaskbarSecondaryWindow : Window
                 return;
             }
 
-            UpdateContent(_currentPrimaryText, _currentSecondaryText, _currentIsPrimaryPinyin, _currentProgress);
+            UpdateContent(_currentPrimaryText, _currentSecondaryText, _currentIsPrimaryPinyin, _currentPrimaryProgress, _currentSecondaryProgress);
         }
         catch { }
     }
@@ -154,7 +155,12 @@ public partial class DualTaskbarSecondaryWindow : Window
         return fallback;
     }
 
-    public void UpdateContent(string primaryText, string? secondaryText = null, bool isPrimaryPinyin = false, double progress = 1.0)
+    public void UpdateContent(
+        string primaryText,
+        string? secondaryText = null,
+        bool isPrimaryPinyin = false,
+        double primaryProgress = 1.0,
+        double secondaryProgress = 1.0)
     {
         Dispatcher.Invoke(() =>
         {
@@ -167,7 +173,8 @@ public partial class DualTaskbarSecondaryWindow : Window
             _currentPrimaryText = primaryText;
             _currentSecondaryText = secondaryText;
             _currentIsPrimaryPinyin = isPrimaryPinyin;
-            _currentProgress = progress;
+            _currentPrimaryProgress = primaryProgress;
+            _currentSecondaryProgress = secondaryProgress;
 
             var settings = _settingsManager.Current;
             ResolveColors(isPrimaryPinyin, out var pCol, out var sCol, out bool isLight);
@@ -175,8 +182,8 @@ public partial class DualTaskbarSecondaryWindow : Window
             // 1. Áp dụng Brush màu (Chạy chữ Karaoke hoặc màu tĩnh)
             if (settings.EnableKaraokeHighlight)
             {
-                PrimaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(pCol, progress, isLight);
-                SecondaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(sCol, progress, isLight);
+                PrimaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(pCol, primaryProgress, isLight);
+                SecondaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(sCol, secondaryProgress, isLight);
             }
             else
             {
