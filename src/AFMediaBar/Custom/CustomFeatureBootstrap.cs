@@ -15,9 +15,15 @@ public static class CustomFeatureBootstrap
         // 1. Cấu hình
         services.AddSingleton<CustomSettingsManager>();
 
-        // 2. Dịch thuật & Cache
+        // 2. Dịch thuật Đa nguồn & Cache
         services.AddSingleton<TranslationCacheService>();
-        services.AddSingleton<ITranslationService, GoogleTranslateService>();
+        services.AddSingleton<GoogleTranslateService>();
+        services.AddSingleton<BingTranslateService>();
+        services.AddSingleton<GeminiTranslateService>();
+        services.AddSingleton<OpenAITranslateService>();
+        services.AddSingleton<MultiProviderTranslationService>();
+        services.AddSingleton<ITranslationService>(sp => sp.GetRequiredService<MultiProviderTranslationService>());
+
         services.AddSingleton<BilingualLyricsManager>();
 
         // 3. Dual Taskbar Windows

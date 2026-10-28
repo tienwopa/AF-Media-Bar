@@ -119,12 +119,48 @@ public enum LyricsAnimationMode
 }
 
 /// <summary>
+/// Nhà cung cấp dịch thuật (Translation Provider).
+/// </summary>
+public enum TranslationProviderType
+{
+    /// <summary>Google Dịch công khai (Miễn phí, nhanh chóng, không cần API Key - Mặc định).</summary>
+    GoogleFree = 0,
+
+    /// <summary>Nguồn dịch miễn phí dự phòng (MyMemory / Lingva Free - Không cần API Key).</summary>
+    BingFree = 1,
+
+    /// <summary>Google Gemini AI API (Dịch chất lượng cao, có vần điệu cảm xúc, cần API Key).</summary>
+    GeminiAI = 2,
+
+    /// <summary>OpenAI / DeepSeek / Groq (Tương thích chuẩn OpenAI API, cần API Key).</summary>
+    OpenAICompatible = 3
+}
+
+/// <summary>
 /// Cấu hình tùy biến dành riêng cho tính năng Song ngữ &amp; Dual Taskbar Lyrics.
 /// </summary>
 public sealed class CustomSettings
 {
     /// <summary>Bật/tắt tính năng dịch và hiển thị song ngữ.</summary>
     public bool EnableBilingualLyrics { get; set; } = true;
+
+    /// <summary>Nhà cung cấp dịch thuật đang sử dụng.</summary>
+    public TranslationProviderType TranslationProvider { get; set; } = TranslationProviderType.GoogleFree;
+
+    /// <summary>API Key Google Gemini (lấy miễn phí từ Google AI Studio: aistudio.google.com).</summary>
+    public string GeminiApiKey { get; set; } = string.Empty;
+
+    /// <summary>Tên model Gemini sử dụng (ví dụ: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash).</summary>
+    public string GeminiModel { get; set; } = "gemini-2.5-flash";
+
+    /// <summary>Base URL cho dịch vụ tương thích OpenAI (ví dụ: https://api.openai.com/v1 hoặc https://api.deepseek.com/v1).</summary>
+    public string OpenAIBaseUrl { get; set; } = "https://api.openai.com/v1";
+
+    /// <summary>API Key OpenAI / DeepSeek / Groq.</summary>
+    public string OpenAIApiKey { get; set; } = string.Empty;
+
+    /// <summary>Tên model OpenAI / DeepSeek (ví dụ: gpt-4o-mini, deepseek-chat).</summary>
+    public string OpenAIModel { get; set; } = "gpt-4o-mini";
 
     /// <summary>Mã ngôn ngữ đích cần dịch sang (mặc định: "vi" - Tiếng Việt).</summary>
     public string TargetLanguage { get; set; } = "vi";

@@ -514,7 +514,7 @@
 
                                 <components:SettingsRow
                                     Description="Tự động căn giữa và tăng kích thước chữ to bằng lời gốc khi chỉ có 1 dòng lời hoạt động"
-                                    Icon="{ui:SymbolIcon AutoFitContent24}"
+                                    Icon="{ui:SymbolIcon AlignCenterVertical24}"
                                     IsNested="True"
                                     Title="Tự cân bằng khi hiển thị 1 dòng">
                                     <ui:ToggleSwitch x:Name="CustomAutoBalanceSingleLineSwitch"
@@ -731,6 +731,103 @@
                                         Step="50"
                                         Unit="ms" />
                                 </components:SettingsRow>
+                            </StackPanel>
+                        </ui:CardExpander>
+
+                        <!-- THẺ 3: NGUỒN DỊCH THUẬT & AI (GEMINI / DEEPSEEK) -->
+                        <ui:CardExpander
+                            Margin="0,8,0,0"
+                            Header="Nguồn Dịch Thuật &amp; AI (Gemini / DeepSeek)"
+                            Icon="{ui:SymbolIcon Brain24}"
+                            IsExpanded="True">
+                            <StackPanel Margin="0,0,0,4">
+                                <components:SettingsRow
+                                    Description="Lựa chọn công cụ dịch: Nguồn miễn phí hoặc AI thông minh dịch theo cảm xúc bài hát"
+                                    Icon="{ui:SymbolIcon Translate24}"
+                                    IsNested="True"
+                                    Title="Bộ dịch thuật sử dụng">
+                                    <ComboBox x:Name="CustomTranslationProviderCombo"
+                                              SelectionChanged="CustomTranslationProviderCombo_SelectionChanged"
+                                              Width="260">
+                                        <ComboBoxItem Content="Google Dịch (Miễn phí, không cần Key - Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="Nguồn Free dự phòng (MyMemory - Không cần Key)" Tag="1" />
+                                        <ComboBoxItem Content="Google Gemini AI (Dịch cảm xúc, cần API Key)" Tag="2" />
+                                        <ComboBoxItem Content="OpenAI / DeepSeek (Tương thích OpenAI API)" Tag="3" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <!-- Bảng thiết lập Google Gemini AI -->
+                                <StackPanel x:Name="CustomGeminiPanel">
+                                    <components:SettingsRow
+                                        Description="Khóa API lấy miễn phí từ Google AI Studio (aistudio.google.com)"
+                                        Icon="{ui:SymbolIcon Key24}"
+                                        IsNested="True"
+                                        Title="Gemini API Key">
+                                        <TextBox x:Name="CustomGeminiApiKeyBox"
+                                                 TextChanged="CustomGeminiApiKeyBox_TextChanged"
+                                                 Width="260" />
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Chọn model Gemini xử lý dịch thuật lời bài hát"
+                                        Icon="{ui:SymbolIcon Bot24}"
+                                        IsNested="True"
+                                        Title="Mô hình Gemini (Model)">
+                                        <ComboBox x:Name="CustomGeminiModelCombo"
+                                                  SelectionChanged="CustomGeminiModelCombo_SelectionChanged"
+                                                  Width="260">
+                                            <ComboBoxItem Content="Gemini 2.5 Flash (Mới nhất, phản hồi nhanh)" Tag="gemini-2.5-flash" />
+                                            <ComboBoxItem Content="Gemini 2.0 Flash (Ổn định, tối ưu)" Tag="gemini-2.0-flash" />
+                                            <ComboBoxItem Content="Gemini 1.5 Flash (Tiết kiệm token)" Tag="gemini-1.5-flash" />
+                                            <ComboBoxItem Content="Gemini 1.5 Pro (Dịch chuyên sâu)" Tag="gemini-1.5-pro" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Gửi một câu dịch thử nghiệm để kiểm tra tính hợp lệ của API Key"
+                                        Icon="{ui:SymbolIcon ArrowSync24}"
+                                        IsNested="True"
+                                        Title="Kiểm tra kết nối Gemini">
+                                        <ui:Button x:Name="CustomTestGeminiBtn"
+                                                   Click="CustomTestGeminiBtn_Click"
+                                                   Content="Kiểm tra API Key"
+                                                   Icon="{ui:SymbolIcon Sparkle24}"
+                                                   Style="{StaticResource AfSettingsButtonStyle}" />
+                                    </components:SettingsRow>
+                                </StackPanel>
+
+                                <!-- Bảng thiết lập OpenAI / DeepSeek -->
+                                <StackPanel x:Name="CustomOpenAIPanel">
+                                    <components:SettingsRow
+                                        Description="Địa chỉ máy chủ API (Mặc định: https://api.openai.com/v1 hoặc https://api.deepseek.com/v1)"
+                                        Icon="{ui:SymbolIcon Link24}"
+                                        IsNested="True"
+                                        Title="Base URL">
+                                        <TextBox x:Name="CustomOpenAIBaseUrlBox"
+                                                 TextChanged="CustomOpenAIBaseUrlBox_TextChanged"
+                                                 Width="260" />
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Khóa API xác thực từ nhà cung cấp (OpenAI / DeepSeek / Groq)"
+                                        Icon="{ui:SymbolIcon Key24}"
+                                        IsNested="True"
+                                        Title="API Key">
+                                        <TextBox x:Name="CustomOpenAIApiKeyBox"
+                                                 TextChanged="CustomOpenAIApiKeyBox_TextChanged"
+                                                 Width="260" />
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Tên mô hình AI (Ví dụ: gpt-4o-mini, deepseek-chat, llama-3.3-70b-versatile)"
+                                        Icon="{ui:SymbolIcon Bot24}"
+                                        IsNested="True"
+                                        Title="Tên mô hình (Model)">
+                                        <TextBox x:Name="CustomOpenAIModelBox"
+                                                 TextChanged="CustomOpenAIModelBox_TextChanged"
+                                                 Width="260" />
+                                    </components:SettingsRow>
+                                </StackPanel>
                             </StackPanel>
                         </ui:CardExpander>
                     </StackPanel>

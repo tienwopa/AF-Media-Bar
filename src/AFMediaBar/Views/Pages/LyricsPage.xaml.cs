@@ -93,11 +93,41 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
             SelectColorInCombo(CustomTransColorCombo, settings.TranslationColor);
             SelectColorInCombo(CustomPinyinColorCombo, settings.RomanizationColor);
+
+            CustomTranslationProviderCombo.SelectedIndex = (int)settings.TranslationProvider;
+            CustomGeminiApiKeyBox.Text = settings.GeminiApiKey ?? string.Empty;
+            SelectGeminiModelInCombo(CustomGeminiModelCombo, settings.GeminiModel);
+            CustomOpenAIBaseUrlBox.Text = settings.OpenAIBaseUrl ?? string.Empty;
+            CustomOpenAIApiKeyBox.Text = settings.OpenAIApiKey ?? string.Empty;
+            CustomOpenAIModelBox.Text = settings.OpenAIModel ?? string.Empty;
+
+            UpdateProviderPanelsVisibility(settings.TranslationProvider);
         }
         finally
         {
             _isInitializing = false;
         }
+    }
+
+    private void UpdateProviderPanelsVisibility(TranslationProviderType provider)
+    {
+        CustomGeminiPanel.Visibility = provider == TranslationProviderType.GeminiAI ? Visibility.Visible : Visibility.Collapsed;
+        CustomOpenAIPanel.Visibility = provider == TranslationProviderType.OpenAICompatible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static void SelectGeminiModelInCombo(System.Windows.Controls.ComboBox combo, string? model)
+    {
+        if (string.IsNullOrEmpty(model)) { combo.SelectedIndex = 0; return; }
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is System.Windows.Controls.ComboBoxItem item &&
+                string.Equals(item.Tag?.ToString(), model, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+        if (combo.Items.Count > 0) combo.SelectedIndex = 0;
     }
 
     private static void SelectMaxWidthInCombo(System.Windows.Controls.ComboBox combo, double maxWidth)
@@ -327,6 +357,107 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         if (_isInitializing) return;
         CustomSettings.Current.AutoSkipVietnamese = CustomAutoSkipVietnameseSwitch.IsChecked ?? true;
         CustomSettings.SaveSettings();
+    }
+
+    private void CustomTranslationProviderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomTranslationProviderCombo.SelectedIndex >= 0)
+        {
+            var provider = (TranslationProviderType)CustomTranslationProviderCombo.SelectedIndex;
+            CustomSettings.Current.TranslationProvider = provider;
+            CustomSettings.SaveSettings();
+            UpdateProviderPanelsVisibility(provider);
+        }
+    }
+
+    private void CustomGeminiApiKeyBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        CustomSettings.Current.GeminiApiKey = CustomGeminiApiKeyBox.Text?.Trim() ?? string.Empty;
+        CustomSettings.SaveSettings();
+    }
+
+    private void CustomGeminiModelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomGeminiModelCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string model)
+        {
+            CustomSettings.Current.GeminiModel = model;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomOpenAIBaseUrlBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        CustomSettings.Current.OpenAIBaseUrl = CustomOpenAIBaseUrlBox.Text?.Trim() ?? string.Empty;
+        CustomSettings.SaveSettings();
+    }
+
+    private void CustomOpenAIApiKeyBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        CustomSettings.Current.OpenAIApiKey = CustomOpenAIApiKeyBox.Text?.Trim() ?? string.Empty;
+        CustomSettings.SaveSettings();
+    }
+
+    private void CustomOpenAIModelBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        CustomSettings.Current.OpenAIModel = CustomOpenAIModelBox.Text?.Trim() ?? string.Empty;
+        CustomSettings.SaveSettings();
+    }
+
+    private async void CustomTestGeminiBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var apiKey = CustomGeminiApiKeyBox.Text?.Trim();
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            CustomTestGeminiBtn.Content = "Chưa nhập API Key!";
+            return;
+        }
+
+        CustomTestGeminiBtn.IsEnabled = false;
+        CustomTestGeminiBtn.Content = "Đang kiểm tra...";
+
+        try
+        {
+            var model = CustomGeminiModelCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string m ? m : "gemini-2.5-flash";
+            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+            var req = new
+            {
+                contents = new[]
+                {
+                    new
+                    {
+                        parts = new[]
+                        {
+                            new { text = "Translate 'Hello' to Vietnamese. Return only the single word translation without punctuation or markdown." }
+                        }
+                    }
+                }
+            };
+            var content = new System.Net.Http.StringContent(System.Text.Json.JsonSerializer.Serialize(req), System.Text.Encoding.UTF8, "application/json");
+            using var resp = await client.PostAsync(url, content);
+            if (resp.IsSuccessStatusCode)
+            {
+                CustomTestGeminiBtn.Content = "✓ Kết nối thành công!";
+            }
+            else
+            {
+                CustomTestGeminiBtn.Content = $"Lỗi {(int)resp.StatusCode}: {resp.ReasonPhrase}";
+            }
+        }
+        catch (Exception ex)
+        {
+            CustomTestGeminiBtn.Content = $"Thất bại: {ex.Message}";
+        }
+        finally
+        {
+            CustomTestGeminiBtn.IsEnabled = true;
+        }
     }
 
     /// <summary>页面首次加载时执行入场揭示。/ Reveals the page on first load.</summary>
