@@ -423,7 +423,12 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
         try
         {
-            var model = CustomGeminiModelCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string m ? m : "gemini-2.5-flash";
+            var selectedTag = CustomGeminiModelCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string m ? m : "gemini-3.5-flash";
+            var model = (selectedTag.StartsWith("gemini-1.5", StringComparison.OrdinalIgnoreCase) ||
+                         selectedTag.StartsWith("gemini-2.0", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(selectedTag, "gemini-2.5-flash", StringComparison.OrdinalIgnoreCase))
+                ? "gemini-3.5-flash"
+                : selectedTag;
             using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(8) };
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
             var req = new

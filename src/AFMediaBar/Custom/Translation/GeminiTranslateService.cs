@@ -47,10 +47,7 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
 
         try
         {
-            var model = string.IsNullOrWhiteSpace(_settingsManager.Current.GeminiModel)
-                ? "gemini-2.5-flash"
-                : _settingsManager.Current.GeminiModel.Trim();
-
+            var model = ResolveModel(_settingsManager.Current.GeminiModel);
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
 
             var prompt = $"Bạn là dịch giả lời bài hát chuyên nghiệp. Hãy dịch câu hát sau sang Tiếng Việt ({targetLanguage}) một cách tự nhiên, cảm xúc, phù hợp âm nhạc. Chỉ trả về câu dịch duy nhất, không giải thích gì thêm:\n{text}";
@@ -160,10 +157,7 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
             var chunkLines = missingTexts.GetRange(chunkStart, count);
             var chunkIndices = missingIndices.GetRange(chunkStart, count);
 
-            var model = string.IsNullOrWhiteSpace(_settingsManager.Current.GeminiModel)
-                ? "gemini-2.5-flash"
-                : _settingsManager.Current.GeminiModel.Trim();
-
+            var model = ResolveModel(_settingsManager.Current.GeminiModel);
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
 
             var sbPrompt = new StringBuilder();
@@ -262,6 +256,20 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
         }
 
         return results;
+    }
+
+    private static string ResolveModel(string? configuredModel)
+    {
+        if (string.IsNullOrWhiteSpace(configuredModel)) return "gemini-3.5-flash";
+        var trimmed = configuredModel.Trim();
+        // Fallback tự động các model đã ngừng hỗ trợ / 404 cho tài khoản mới
+        if (trimmed.StartsWith("gemini-1.5", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("gemini-2.0", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "gemini-2.5-flash", StringComparison.OrdinalIgnoreCase))
+        {
+            return "gemini-3.5-flash";
+        }
+        return trimmed;
     }
 
     public void Dispose()

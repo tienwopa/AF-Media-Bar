@@ -150,8 +150,8 @@ public sealed class CustomSettings
     /// <summary>API Key Google Gemini (lấy miễn phí từ Google AI Studio: aistudio.google.com).</summary>
     public string GeminiApiKey { get; set; } = string.Empty;
 
-    /// <summary>Tên model Gemini sử dụng (ví dụ: gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash).</summary>
-    public string GeminiModel { get; set; } = "gemini-2.5-flash";
+    /// <summary>Tên model Gemini sử dụng (ví dụ: gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.8-flash).</summary>
+    public string GeminiModel { get; set; } = "gemini-3.5-flash";
 
     /// <summary>Base URL cho dịch vụ tương thích OpenAI (ví dụ: https://api.openai.com/v1 hoặc https://api.deepseek.com/v1).</summary>
     public string OpenAIBaseUrl { get; set; } = "https://api.openai.com/v1";
@@ -271,6 +271,15 @@ public sealed class CustomSettingsManager
                 var loaded = JsonSerializer.Deserialize<CustomSettings>(json, _jsonOptions);
                 if (loaded != null)
                 {
+                    // Tự động nâng cấp các model đã bị Google khai tử/ngừng hỗ trợ sang gemini-3.5-flash
+                    if (string.IsNullOrWhiteSpace(loaded.GeminiModel) ||
+                        loaded.GeminiModel.StartsWith("gemini-1.5", StringComparison.OrdinalIgnoreCase) ||
+                        loaded.GeminiModel.StartsWith("gemini-2.0", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(loaded.GeminiModel, "gemini-2.5-flash", StringComparison.OrdinalIgnoreCase))
+                    {
+                        loaded.GeminiModel = "gemini-3.5-flash";
+                    }
+
                     Current = loaded;
                     return;
                 }

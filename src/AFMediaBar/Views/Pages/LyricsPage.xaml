@@ -776,10 +776,10 @@
                                         <ComboBox x:Name="CustomGeminiModelCombo"
                                                   SelectionChanged="CustomGeminiModelCombo_SelectionChanged"
                                                   Width="260">
-                                            <ComboBoxItem Content="Gemini 2.5 Flash (Mới nhất, phản hồi nhanh)" Tag="gemini-2.5-flash" />
-                                            <ComboBoxItem Content="Gemini 2.0 Flash (Ổn định, tối ưu)" Tag="gemini-2.0-flash" />
-                                            <ComboBoxItem Content="Gemini 1.5 Flash (Tiết kiệm token)" Tag="gemini-1.5-flash" />
-                                            <ComboBoxItem Content="Gemini 1.5 Pro (Dịch chuyên sâu)" Tag="gemini-1.5-pro" />
+                                            <ComboBoxItem Content="Gemini 3.5 Flash (Khuyên dùng, dịch chuẩn &amp; mượt)" Tag="gemini-3.5-flash" />
+                                            <ComboBoxItem Content="Gemini 3.5 Flash Lite (Siêu nhanh, tiết kiệm)" Tag="gemini-3.5-flash-lite" />
+                                            <ComboBoxItem Content="Gemini 3.8 Flash (Mô hình mới nhất)" Tag="gemini-3.8-flash" />
+                                            <ComboBoxItem Content="Gemini 3.1 Pro (Dịch chuyên sâu)" Tag="gemini-3.1-pro-preview" />
                                         </ComboBox>
                                     </components:SettingsRow>
 
