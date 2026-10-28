@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Utils;
 using AFMediaBar.Custom.Settings;
@@ -11,6 +12,7 @@ namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
 /// Cửa sổ hiển thị lời dịch / pinyin nổi trên Màn hình thứ 2 (Secondary Monitor).
+/// Hỗ trợ căn lề (Trái/Giữa/Phải), animation chuyển câu mượt mà, và tự điều chỉnh cân bằng 1 dòng.
 /// </summary>
 public partial class DualTaskbarSecondaryWindow : Window
 {
@@ -152,6 +154,41 @@ public partial class DualTaskbarSecondaryWindow : Window
         return fallback;
     }
 
+    private void TriggerEntranceAnimation(LyricsAnimationMode mode)
+    {
+        if (mode == LyricsAnimationMode.None) return;
+
+        var duration = TimeSpan.FromMilliseconds(220);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        var opacityAnim = new DoubleAnimation(0.2, 1.0, duration) { EasingFunction = ease };
+        ContentStack.BeginAnimation(OpacityProperty, opacityAnim);
+
+        switch (mode)
+        {
+            case LyricsAnimationMode.SlideUp:
+                EntranceTranslate.Y = 6;
+                var slideUpAnim = new DoubleAnimation(6, 0, duration) { EasingFunction = ease };
+                EntranceTranslate.BeginAnimation(TranslateTransform.YProperty, slideUpAnim);
+                break;
+
+            case LyricsAnimationMode.SlideHorizontal:
+                double startX = _settingsManager.Current.SecondaryAlignment == SecondaryTaskbarAlignment.Right ? 8 : -8;
+                EntranceTranslate.X = startX;
+                var slideXAnim = new DoubleAnimation(startX, 0, duration) { EasingFunction = ease };
+                EntranceTranslate.BeginAnimation(TranslateTransform.XProperty, slideXAnim);
+                break;
+
+            case LyricsAnimationMode.ZoomIn:
+                EntranceScale.ScaleX = 0.94;
+                EntranceScale.ScaleY = 0.94;
+                var scaleAnim = new DoubleAnimation(0.94, 1.0, duration) { EasingFunction = ease };
+                EntranceScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
+                EntranceScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+                break;
+        }
+    }
+
     public void UpdateContent(
         string primaryText,
         string? secondaryText = null,
@@ -166,6 +203,8 @@ public partial class DualTaskbarSecondaryWindow : Window
                 Visibility = Visibility.Collapsed;
                 return;
             }
+
+            bool textChanged = _currentPrimaryText != primaryText || _currentSecondaryText != secondaryText;
 
             _currentPrimaryText = primaryText;
             _currentSecondaryText = secondaryText;
@@ -193,11 +232,23 @@ public partial class DualTaskbarSecondaryWindow : Window
                 SecondaryLineText.FontSize = sSize;
                 SecondaryLineText.Text = secondaryText!;
                 SecondaryLineText.Visibility = Visibility.Visible;
+                ContentStack.VerticalAlignment = VerticalAlignment.Center;
             }
             else
             {
-                PrimaryLineText.FontSize = pSize;
+                // Khi chỉ có 1 dòng hoạt động: Tự động cân bằng cỡ chữ to bằng lời gốc
+                if (settings.AutoBalanceSingleLine)
+                {
+                    double singleSize = Math.Max(pSize, 13.0);
+                    PrimaryLineText.FontSize = singleSize;
+                }
+                else
+                {
+                    PrimaryLineText.FontSize = pSize;
+                }
+
                 SecondaryLineText.Visibility = Visibility.Collapsed;
+                ContentStack.VerticalAlignment = VerticalAlignment.Center;
             }
 
             // 2. Phân bổ độ đậm chữ (FontWeight)
@@ -266,6 +317,12 @@ public partial class DualTaskbarSecondaryWindow : Window
             PrimaryLineText.Text = primaryText;
             Visibility = Visibility.Visible;
             PositionOnSecondaryScreen();
+
+            // 5. Kích hoạt Animation chuyển câu nếu đổi sang câu mới
+            if (textChanged)
+            {
+                TriggerEntranceAnimation(settings.AnimationMode);
+            }
         });
     }
 
@@ -299,14 +356,14 @@ public partial class DualTaskbarSecondaryWindow : Window
                 }
                 else if (settings.SecondaryAlignment == SecondaryTaskbarAlignment.Right)
                 {
-                    Left = wa.Right - Width - 40;
+                    Left = wa.X + wa.Width - Width - 40;
                 }
                 else
                 {
                     Left = wa.X + (wa.Width - Width) / 2;
                 }
 
-                Top = wa.Bottom - Height - 12;
+                Top = wa.Y + wa.Height - Height - 12;
             }
         }
         catch (Exception ex)

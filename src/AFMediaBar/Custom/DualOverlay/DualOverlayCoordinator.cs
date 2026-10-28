@@ -12,9 +12,9 @@ namespace AFMediaBar.Custom.DualOverlay;
 /// <summary>
 /// Điều phối logic hiển thị đa dạng vị trí cho Lời dịch và Pinyin:
 /// - Ngoại suy thời gian thực GetPosition để hiệu ứng Karaoke chạy chữ siêu mượt 25 FPS (40ms).
-/// - Tính toán tiến độ Karaoke riêng biệt cho Lời dịch và từng âm tiết Pinyin.
-/// - Hỗ trợ tùy chỉnh thứ tự dòng (Lời dịch trên hay Pinyin trên).
-/// - Tự động phát hiện màn hình thứ 2 và gộp an toàn về Taskbar chính nếu chỉ có 1 màn hình.
+/// - Nhận diện thông minh: Chỉ bật Karaoke khi bài hát có dữ liệu Karaoke âm tiết thực sự, ngược lại tự động tắt.
+/// - Đồng bộ tức thì bật/tắt Lời bài hát song ngữ (EnableBilingualLyrics).
+/// - Hỗ trợ tùy chỉnh thứ tự dòng và tự động điều chỉnh tỷ lệ 1 dòng / 2 dòng.
 /// </summary>
 public sealed class DualOverlayCoordinator : IDisposable
 {
@@ -52,10 +52,19 @@ public sealed class DualOverlayCoordinator : IDisposable
 
         _mediaSessionService.SnapshotChanged += MediaSessionService_SnapshotChanged;
         _bilingualLyricsManager.BilingualLyricsReady += BilingualLyricsManager_BilingualLyricsReady;
+        _settingsManager.SettingsChanged += SettingsManager_SettingsChanged;
 
         _primaryWindow.Show();
         _secondaryWindow.Show();
         _syncTimer.Start();
+    }
+
+    private void SettingsManager_SettingsChanged(CustomSettings settings)
+    {
+        if (!settings.EnableDualTaskbarLyrics || !settings.EnableBilingualLyrics)
+        {
+            HideAllWindows();
+        }
     }
 
     private void MediaSessionService_SnapshotChanged(object? sender, MediaSnapshot snapshot)
@@ -99,10 +108,28 @@ public sealed class DualOverlayCoordinator : IDisposable
         return seconds >= lines[^1].Start ? lines[^1] : null;
     }
 
+    /// <summary>
+    /// Kiểm tra xem câu hát có dữ liệu từng từ/âm tiết Karaoke thực sự hay không.
+    /// </summary>
+    private static bool HasRealKaraokeWords(LyricLine? line)
+    {
+        if (line?.Words == null || line.Words.Count == 0)
+        {
+            return false;
+        }
+
+        int count = 0;
+        foreach (var w in line.Words)
+        {
+            if (w.End > w.Start) count++;
+        }
+        return count >= 2;
+    }
+
     private void SyncTimer_Tick(object? sender, EventArgs e)
     {
         var settings = _settingsManager.Current;
-        if (!settings.EnableDualTaskbarLyrics)
+        if (!settings.EnableDualTaskbarLyrics || !settings.EnableBilingualLyrics)
         {
             HideAllWindows();
             return;
@@ -140,7 +167,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         string? translation = transLine?.Translation;
-        double transProgress = transLine != null ? CalculateTranslationProgress(transLine, transSeconds) : 1.0;
+        string? pinyin = pinyinLine?.Romanization;
 
         // Bỏ qua dịch nếu bài hát là Tiếng Việt
         if (_isCurrentTrackVietnamese && settings.AutoSkipVietnamese)
@@ -148,12 +175,30 @@ public sealed class DualOverlayCoordinator : IDisposable
             translation = null;
         }
 
-        string? pinyin = pinyinLine?.Romanization;
         if (pinyinLine != null && string.IsNullOrWhiteSpace(pinyin) && PinyinGeneratorService.HasChinese(pinyinLine.Text))
         {
             pinyin = PinyinGeneratorService.ToPinyin(pinyinLine.Text);
         }
-        double pinyinProgress = pinyinLine != null ? CalculatePinyinProgress(pinyinLine, pinyin, pinyinSeconds) : 1.0;
+
+        // Kiểm tra nhận diện Karaoke thông minh
+        double transProgress = 1.0;
+        double pinyinProgress = 1.0;
+
+        if (settings.EnableKaraokeHighlight)
+        {
+            bool hasTransKaraoke = HasRealKaraokeWords(transLine);
+            bool hasPinyinKaraoke = HasRealKaraokeWords(pinyinLine);
+
+            if (!settings.OnlyKaraokeWhenAvailable || hasTransKaraoke)
+            {
+                transProgress = transLine != null ? CalculateTranslationProgress(transLine, transSeconds) : 1.0;
+            }
+
+            if (!settings.OnlyKaraokeWhenAvailable || hasPinyinKaraoke)
+            {
+                pinyinProgress = pinyinLine != null ? CalculatePinyinProgress(pinyinLine, pinyin, pinyinSeconds) : 1.0;
+            }
+        }
 
         // Điều phối nội dung tới Taskbar chính hoặc Màn hình 2
         DispatchContent(translation, transProgress, pinyin, pinyinProgress, settings);
@@ -243,12 +288,32 @@ public sealed class DualOverlayCoordinator : IDisposable
     }
 
     /// <summary>
-    /// Tính toán tiến độ Karaoke cho Lời dịch Tiếng Việt (chạy mượt theo thời gian câu hát).
+    /// Tính toán tiến độ Karaoke cho Lời dịch Tiếng Việt dựa trên tỷ lệ từ bài hát gốc.
     /// </summary>
     private static double CalculateTranslationProgress(LyricLine line, double currentSeconds)
     {
         if (currentSeconds <= line.Start) return 0.0;
         if (currentSeconds >= line.End) return 1.0;
+
+        if (line.Words != null && line.Words.Count > 0)
+        {
+            var words = line.Words;
+            int n = words.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var w = words[i];
+                if (currentSeconds >= w.Start && currentSeconds < w.End)
+                {
+                    double wDur = Math.Max(0.01, w.End - w.Start);
+                    double wFrac = Math.Clamp((currentSeconds - w.Start) / wDur, 0.0, 1.0);
+                    return Math.Clamp((i + wFrac) / n, 0.0, 1.0);
+                }
+                if (currentSeconds >= w.End && (i == n - 1 || currentSeconds < words[i + 1].Start))
+                {
+                    return Math.Clamp((i + 1.0) / n, 0.0, 1.0);
+                }
+            }
+        }
 
         double lineDuration = Math.Max(0.3, line.End - line.Start);
         return Math.Clamp((currentSeconds - line.Start) / lineDuration, 0.0, 1.0);
@@ -421,6 +486,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         _syncTimer.Stop();
         _mediaSessionService.SnapshotChanged -= MediaSessionService_SnapshotChanged;
         _bilingualLyricsManager.BilingualLyricsReady -= BilingualLyricsManager_BilingualLyricsReady;
+        _settingsManager.SettingsChanged -= SettingsManager_SettingsChanged;
         _primaryWindow.Close();
         _secondaryWindow.Close();
     }

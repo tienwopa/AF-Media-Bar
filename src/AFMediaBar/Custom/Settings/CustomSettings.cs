@@ -23,6 +23,21 @@ public enum LyricElementPlacement
 }
 
 /// <summary>
+/// Căn lề hiển thị trên Taskbar chính.
+/// </summary>
+public enum PrimaryTaskbarAlignment
+{
+    /// <summary>Căn lề phải (sát khay hệ thống Tray).</summary>
+    Right = 0,
+
+    /// <summary>Căn giữa khu vực trống của Taskbar.</summary>
+    Center = 1,
+
+    /// <summary>Căn lề trái (sát bên phải các icon ứng dụng).</summary>
+    Left = 2
+}
+
+/// <summary>
 /// Căn lề hiển thị trên Màn hình thứ 2.
 /// </summary>
 public enum SecondaryTaskbarAlignment
@@ -83,7 +98,28 @@ public enum KaraokeTargetMode
 }
 
 /// <summary>
-/// Cấu hình tùy biến dành riêng cho tính năng Song ngữ & Dual Taskbar Lyrics.
+/// Hiệu ứng chuyển cảnh (Animation) khi xuất hiện câu hát mới.
+/// </summary>
+public enum LyricsAnimationMode
+{
+    /// <summary>Cuộn lên mượt mà và làm mờ (Slide Up &amp; Fade - Giống lời gốc).</summary>
+    SlideUp = 0,
+
+    /// <summary>Mờ dần êm ái (Fade Only).</summary>
+    FadeOnly = 1,
+
+    /// <summary>Trượt ngang nhẹ (Slide Horizontal).</summary>
+    SlideHorizontal = 2,
+
+    /// <summary>Phóng to nhẹ (Zoom In 96% -> 100%).</summary>
+    ZoomIn = 3,
+
+    /// <summary>Không hiệu ứng (Tức thì).</summary>
+    None = 4
+}
+
+/// <summary>
+/// Cấu hình tùy biến dành riêng cho tính năng Song ngữ &amp; Dual Taskbar Lyrics.
 /// </summary>
 public sealed class CustomSettings
 {
@@ -102,6 +138,12 @@ public sealed class CustomSettings
     /// <summary>Vị trí hiển thị của Pinyin / Phiên âm.</summary>
     public LyricElementPlacement RomanizationPlacement { get; set; } = LyricElementPlacement.SecondaryScreen;
 
+    /// <summary>Căn lề vị trí hiển thị trên Taskbar chính.</summary>
+    public PrimaryTaskbarAlignment PrimaryAlignment { get; set; } = PrimaryTaskbarAlignment.Right;
+
+    /// <summary>Độ rộng tối đa cho phép hiển thị trên Taskbar chính (DIP, mặc định 480).</summary>
+    public double PrimaryMaxWidth { get; set; } = 480.0;
+
     /// <summary>Căn lề vị trí hiển thị trên Màn hình thứ 2.</summary>
     public SecondaryTaskbarAlignment SecondaryAlignment { get; set; } = SecondaryTaskbarAlignment.Center;
 
@@ -117,6 +159,21 @@ public sealed class CustomSettings
     /// <summary>Độ đậm phông chữ khi hiển thị 2 dòng.</summary>
     public BilingualWeightEmphasis WeightEmphasis { get; set; } = BilingualWeightEmphasis.Balanced;
 
+    /// <summary>Tự động căn giữa và điều chỉnh cỡ chữ to bằng lời gốc khi chỉ có 1 dòng hoạt động.</summary>
+    public bool AutoBalanceSingleLine { get; set; } = true;
+
+    /// <summary>Hiệu ứng chuyển câu xuất hiện lời bài hát.</summary>
+    public LyricsAnimationMode AnimationMode { get; set; } = LyricsAnimationMode.SlideUp;
+
+    /// <summary>Bật/tắt hiệu ứng chạy chữ Karaoke (Karaoke Wipe Highlight) theo tiến độ bài hát.</summary>
+    public bool EnableKaraokeHighlight { get; set; } = true;
+
+    /// <summary>Chỉ bật chạy chữ Karaoke khi bài hát có dữ liệu Karaoke từng từ thực sự (Words), nếu không tự động tắt.</summary>
+    public bool OnlyKaraokeWhenAvailable { get; set; } = true;
+
+    /// <summary>Phạm vi áp dụng hiệu ứng chạy chữ Karaoke.</summary>
+    public KaraokeTargetMode KaraokeTarget { get; set; } = KaraokeTargetMode.Both;
+
     /// <summary>Tự động điều chỉnh màu sắc chữ dựa vào màu nền Taskbar (Light/Dark mode).</summary>
     public bool AutoAdaptTaskbarColor { get; set; } = true;
 
@@ -128,12 +185,6 @@ public sealed class CustomSettings
 
     /// <summary>Màu sắc chữ của Pinyin / Phiên âm (mã HEX, ví dụ: #FFD54F hoặc #18181B).</summary>
     public string RomanizationColor { get; set; } = "#FFD54F";
-
-    /// <summary>Bật/tắt hiệu ứng chạy chữ Karaoke (Karaoke Wipe Highlight) theo tiến độ bài hát.</summary>
-    public bool EnableKaraokeHighlight { get; set; } = true;
-
-    /// <summary>Phạm vi áp dụng hiệu ứng chạy chữ Karaoke.</summary>
-    public KaraokeTargetMode KaraokeTarget { get; set; } = KaraokeTargetMode.Both;
 
     /// <summary>Độ lệch thời gian hiển thị Lời dịch Tiếng Việt (ms). Dương = Sớm hơn, Âm = Trễ hơn.</summary>
     public int TranslationOffsetMs { get; set; } = 0;

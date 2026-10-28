@@ -14,11 +14,13 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     public LyricsViewModel ViewModel { get; }
     public CustomSettingsManager CustomSettings { get; }
 
+    private bool _isInitializing = true;
+
     public static readonly DependencyProperty TranslationOffsetMsProperty = DependencyProperty.Register(
         nameof(TranslationOffsetMs), typeof(double), typeof(LyricsPage),
         new FrameworkPropertyMetadata(0.0, (d, e) =>
         {
-            if (d is LyricsPage page && e.NewValue is double val)
+            if (d is LyricsPage page && !page._isInitializing && e.NewValue is double val)
             {
                 page.CustomSettings.Current.TranslationOffsetMs = (int)Math.Round(val);
                 page.CustomSettings.SaveSettings();
@@ -35,7 +37,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         nameof(RomanizationOffsetMs), typeof(double), typeof(LyricsPage),
         new FrameworkPropertyMetadata(0.0, (d, e) =>
         {
-            if (d is LyricsPage page && e.NewValue is double val)
+            if (d is LyricsPage page && !page._isInitializing && e.NewValue is double val)
             {
                 page.CustomSettings.Current.RomanizationOffsetMs = (int)Math.Round(val);
                 page.CustomSettings.SaveSettings();
@@ -60,28 +62,57 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void LyricsPage_Loaded(object sender, RoutedEventArgs e)
     {
-        var settings = CustomSettings.Current;
-        CustomEnableBilingualSwitch.IsChecked = settings.EnableBilingualLyrics;
-        CustomEnableDualTaskbarSwitch.IsChecked = settings.EnableDualTaskbarLyrics;
-        CustomEnableKaraokeSwitch.IsChecked = settings.EnableKaraokeHighlight;
-        CustomAutoAdaptColorSwitch.IsChecked = settings.AutoAdaptTaskbarColor;
-        CustomAutoSkipVietnameseSwitch.IsChecked = settings.AutoSkipVietnamese;
+        _isInitializing = true;
+        try
+        {
+            var settings = CustomSettings.Current;
+            CustomEnableBilingualSwitch.IsChecked = settings.EnableBilingualLyrics;
+            CustomEnableDualTaskbarSwitch.IsChecked = settings.EnableDualTaskbarLyrics;
+            CustomEnableKaraokeSwitch.IsChecked = settings.EnableKaraokeHighlight;
+            CustomOnlyKaraokeWhenAvailableSwitch.IsChecked = settings.OnlyKaraokeWhenAvailable;
+            CustomAutoAdaptColorSwitch.IsChecked = settings.AutoAdaptTaskbarColor;
+            CustomAutoSkipVietnameseSwitch.IsChecked = settings.AutoSkipVietnamese;
+            CustomAutoBalanceSingleLineSwitch.IsChecked = settings.AutoBalanceSingleLine;
 
-        CustomTransPlacementCombo.SelectedIndex = (int)settings.TranslationPlacement;
-        CustomPinyinPlacementCombo.SelectedIndex = (int)settings.RomanizationPlacement;
-        CustomSecondaryAlignCombo.SelectedIndex = (int)settings.SecondaryAlignment;
+            CustomTransPlacementCombo.SelectedIndex = (int)settings.TranslationPlacement;
+            CustomPinyinPlacementCombo.SelectedIndex = (int)settings.RomanizationPlacement;
+            CustomSecondaryAlignCombo.SelectedIndex = (int)settings.SecondaryAlignment;
+            CustomPrimaryAlignCombo.SelectedIndex = (int)settings.PrimaryAlignment;
+            CustomAnimationModeCombo.SelectedIndex = (int)settings.AnimationMode;
 
-        TranslationOffsetMs = settings.TranslationOffsetMs;
-        RomanizationOffsetMs = settings.RomanizationOffsetMs;
+            SelectMaxWidthInCombo(CustomPrimaryMaxWidthCombo, settings.PrimaryMaxWidth);
 
-        CustomLineOrderCombo.SelectedIndex = (int)settings.LineOrder;
-        SelectFontSizeInCombo(CustomTransFontSizeCombo, settings.TranslationFontSize);
-        SelectFontSizeInCombo(CustomPinyinFontSizeCombo, settings.RomanizationFontSize);
-        CustomFontWeightCombo.SelectedIndex = (int)settings.WeightEmphasis;
-        CustomKaraokeTargetCombo.SelectedIndex = (int)settings.KaraokeTarget;
+            TranslationOffsetMs = settings.TranslationOffsetMs;
+            RomanizationOffsetMs = settings.RomanizationOffsetMs;
 
-        SelectColorInCombo(CustomTransColorCombo, settings.TranslationColor);
-        SelectColorInCombo(CustomPinyinColorCombo, settings.RomanizationColor);
+            CustomLineOrderCombo.SelectedIndex = (int)settings.LineOrder;
+            SelectFontSizeInCombo(CustomTransFontSizeCombo, settings.TranslationFontSize);
+            SelectFontSizeInCombo(CustomPinyinFontSizeCombo, settings.RomanizationFontSize);
+            CustomFontWeightCombo.SelectedIndex = (int)settings.WeightEmphasis;
+            CustomKaraokeTargetCombo.SelectedIndex = (int)settings.KaraokeTarget;
+
+            SelectColorInCombo(CustomTransColorCombo, settings.TranslationColor);
+            SelectColorInCombo(CustomPinyinColorCombo, settings.RomanizationColor);
+        }
+        finally
+        {
+            _isInitializing = false;
+        }
+    }
+
+    private static void SelectMaxWidthInCombo(System.Windows.Controls.ComboBox combo, double maxWidth)
+    {
+        string target = ((int)maxWidth).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is System.Windows.Controls.ComboBoxItem item &&
+                string.Equals(item.Tag?.ToString(), target, StringComparison.OrdinalIgnoreCase))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+        if (combo.Items.Count > 2) combo.SelectedIndex = 2; // Default 480 px
     }
 
     private static void SelectFontSizeInCombo(System.Windows.Controls.ComboBox combo, double size)
@@ -115,30 +146,49 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomEnableBilingualSwitch_Click(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing) return;
         CustomSettings.Current.EnableBilingualLyrics = CustomEnableBilingualSwitch.IsChecked ?? false;
         CustomSettings.SaveSettings();
     }
 
     private void CustomEnableDualTaskbarSwitch_Click(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing) return;
         CustomSettings.Current.EnableDualTaskbarLyrics = CustomEnableDualTaskbarSwitch.IsChecked ?? false;
         CustomSettings.SaveSettings();
     }
 
     private void CustomEnableKaraokeSwitch_Click(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing) return;
         CustomSettings.Current.EnableKaraokeHighlight = CustomEnableKaraokeSwitch.IsChecked ?? true;
+        CustomSettings.SaveSettings();
+    }
+
+    private void CustomOnlyKaraokeWhenAvailableSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isInitializing) return;
+        CustomSettings.Current.OnlyKaraokeWhenAvailable = CustomOnlyKaraokeWhenAvailableSwitch.IsChecked ?? true;
+        CustomSettings.SaveSettings();
+    }
+
+    private void CustomAutoBalanceSingleLineSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isInitializing) return;
+        CustomSettings.Current.AutoBalanceSingleLine = CustomAutoBalanceSingleLineSwitch.IsChecked ?? true;
         CustomSettings.SaveSettings();
     }
 
     private void CustomAutoAdaptColorSwitch_Click(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing) return;
         CustomSettings.Current.AutoAdaptTaskbarColor = CustomAutoAdaptColorSwitch.IsChecked ?? true;
         CustomSettings.SaveSettings();
     }
 
     private void CustomLineOrderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomLineOrderCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.LineOrder = (BilingualLineOrder)CustomLineOrderCombo.SelectedIndex;
@@ -148,6 +198,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomTransFontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomTransFontSizeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
             item.Tag is string tagStr &&
             double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double size))
@@ -159,6 +210,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomPinyinFontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomPinyinFontSizeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
             item.Tag is string tagStr &&
             double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double size))
@@ -170,6 +222,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomFontWeightCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomFontWeightCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.WeightEmphasis = (BilingualWeightEmphasis)CustomFontWeightCombo.SelectedIndex;
@@ -177,8 +230,41 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         }
     }
 
+    private void CustomPrimaryAlignCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomPrimaryAlignCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.PrimaryAlignment = (PrimaryTaskbarAlignment)CustomPrimaryAlignCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomPrimaryMaxWidthCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomPrimaryMaxWidthCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            item.Tag is string tagStr &&
+            double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double width))
+        {
+            CustomSettings.Current.PrimaryMaxWidth = width;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomAnimationModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomAnimationModeCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.AnimationMode = (LyricsAnimationMode)CustomAnimationModeCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
     private void CustomKaraokeTargetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomKaraokeTargetCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.KaraokeTarget = (KaraokeTargetMode)CustomKaraokeTargetCombo.SelectedIndex;
@@ -188,6 +274,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomSecondaryAlignCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomSecondaryAlignCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.SecondaryAlignment = (SecondaryTaskbarAlignment)CustomSecondaryAlignCombo.SelectedIndex;
@@ -197,6 +284,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomTransPlacementCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomTransPlacementCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.TranslationPlacement = (LyricElementPlacement)CustomTransPlacementCombo.SelectedIndex;
@@ -206,6 +294,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomPinyinPlacementCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomPinyinPlacementCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.RomanizationPlacement = (LyricElementPlacement)CustomPinyinPlacementCombo.SelectedIndex;
@@ -215,6 +304,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomTransColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomTransColorCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string hex)
         {
             CustomSettings.Current.TranslationColor = hex;
@@ -224,6 +314,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomPinyinColorCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isInitializing) return;
         if (CustomPinyinColorCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string hex)
         {
             CustomSettings.Current.RomanizationColor = hex;
@@ -233,6 +324,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private void CustomAutoSkipVietnameseSwitch_Click(object sender, RoutedEventArgs e)
     {
+        if (_isInitializing) return;
         CustomSettings.Current.AutoSkipVietnamese = CustomAutoSkipVietnameseSwitch.IsChecked ?? true;
         CustomSettings.SaveSettings();
     }

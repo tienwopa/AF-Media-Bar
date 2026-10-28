@@ -19,8 +19,14 @@
         Visibility="Collapsed">
 
     <Grid Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Stretch">
-        <StackPanel x:Name="ContentStack" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
-            
+        <StackPanel x:Name="ContentStack" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+            <StackPanel.RenderTransform>
+                <TransformGroup>
+                    <TranslateTransform x:Name="EntranceTranslate" X="0" Y="0" />
+                    <ScaleTransform x:Name="EntranceScale" ScaleX="1.0" ScaleY="1.0" />
+                </TransformGroup>
+            </StackPanel.RenderTransform>
+
             <!-- Dòng 1 trên Màn hình 2 -->
             <TextBlock x:Name="PrimaryLineText"
                        Text=""

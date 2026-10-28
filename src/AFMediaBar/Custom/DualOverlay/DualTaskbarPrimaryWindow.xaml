@@ -17,9 +17,15 @@
         SnapsToDevicePixels="True"
         Visibility="Collapsed">
 
-    <Grid x:Name="RootLayout" Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
-        <StackPanel x:Name="LinesStack" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Right">
-            
+    <Grid x:Name="RootLayout" Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="0,0,10,0">
+        <StackPanel x:Name="LinesStack" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Right" RenderTransformOrigin="0.5,0.5">
+            <StackPanel.RenderTransform>
+                <TransformGroup>
+                    <TranslateTransform x:Name="EntranceTranslate" X="0" Y="0" />
+                    <ScaleTransform x:Name="EntranceScale" ScaleX="1.0" ScaleY="1.0" />
+                </TransformGroup>
+            </StackPanel.RenderTransform>
+
             <!-- Dòng 1: Lời dịch hoặc Pinyin tùy theo thiết lập thứ tự -->
             <TextBlock x:Name="PrimaryLineText"
                        Text=""

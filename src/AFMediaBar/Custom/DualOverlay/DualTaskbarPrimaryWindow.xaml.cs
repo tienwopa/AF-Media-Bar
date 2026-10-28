@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
@@ -11,7 +12,7 @@ namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
 /// Cửa sổ hiển thị nhúng chìm vào thanh Taskbar chính của Windows (Shell_TrayWnd).
-/// Hỗ trợ hiển thị 1 hoặc 2 dòng gộp, chạy chữ Karaoke mượt mà, và tự điều chỉnh kích thước/độ đậm độc lập.
+/// Hỗ trợ căn lề (Phải/Giữa/Trái), giới hạn khu vực, animation chuyển câu, và tự động căn bằng 1 dòng.
 /// </summary>
 public partial class DualTaskbarPrimaryWindow : Window
 {
@@ -160,6 +161,42 @@ public partial class DualTaskbarPrimaryWindow : Window
         return fallback;
     }
 
+    private void TriggerEntranceAnimation(LyricsAnimationMode mode)
+    {
+        if (mode == LyricsAnimationMode.None) return;
+
+        var duration = TimeSpan.FromMilliseconds(220);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        // 1. Fade in
+        var opacityAnim = new DoubleAnimation(0.2, 1.0, duration) { EasingFunction = ease };
+        LinesStack.BeginAnimation(OpacityProperty, opacityAnim);
+
+        switch (mode)
+        {
+            case LyricsAnimationMode.SlideUp:
+                EntranceTranslate.Y = 6;
+                var slideUpAnim = new DoubleAnimation(6, 0, duration) { EasingFunction = ease };
+                EntranceTranslate.BeginAnimation(TranslateTransform.YProperty, slideUpAnim);
+                break;
+
+            case LyricsAnimationMode.SlideHorizontal:
+                double startX = _settingsManager.Current.PrimaryAlignment == PrimaryTaskbarAlignment.Right ? 8 : -8;
+                EntranceTranslate.X = startX;
+                var slideXAnim = new DoubleAnimation(startX, 0, duration) { EasingFunction = ease };
+                EntranceTranslate.BeginAnimation(TranslateTransform.XProperty, slideXAnim);
+                break;
+
+            case LyricsAnimationMode.ZoomIn:
+                EntranceScale.ScaleX = 0.94;
+                EntranceScale.ScaleY = 0.94;
+                var scaleAnim = new DoubleAnimation(0.94, 1.0, duration) { EasingFunction = ease };
+                EntranceScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
+                EntranceScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+                break;
+        }
+    }
+
     /// <summary>
     /// Cập nhật nội dung hiển thị theo 1 hoặc 2 dòng kèm tiến độ chạy chữ Karaoke độc lập.
     /// </summary>
@@ -177,6 +214,8 @@ public partial class DualTaskbarPrimaryWindow : Window
                 Visibility = Visibility.Collapsed;
                 return;
             }
+
+            bool textChanged = _currentPrimaryText != primaryText || _currentSecondaryText != secondaryText;
 
             _currentPrimaryText = primaryText;
             _currentSecondaryText = secondaryText;
@@ -200,7 +239,7 @@ public partial class DualTaskbarPrimaryWindow : Window
 
             if (hasTwoLines)
             {
-                // Khi hiển thị 2 dòng, giới hạn nhẹ kích thước để không tràn chiều cao Taskbar (40-48px)
+                // Khi hiển thị 2 dòng: co nhẹ để không tràn chiều cao taskbar (40-48px)
                 pSize = Math.Min(pSize, 13.0);
                 sSize = Math.Min(sSize, 12.0);
 
@@ -211,15 +250,52 @@ public partial class DualTaskbarPrimaryWindow : Window
 
                 SecondaryLineText.Text = secondaryText!;
                 SecondaryLineText.Visibility = Visibility.Visible;
+                LinesStack.VerticalAlignment = VerticalAlignment.Center;
             }
             else
             {
-                PrimaryLineText.FontSize = pSize;
+                // Khi chỉ có 1 dòng hoạt động: Tự động căn giữa và nâng cỡ chữ bằng lời gốc
+                if (settings.AutoBalanceSingleLine)
+                {
+                    double singleSize = Math.Max(pSize, 13.0);
+                    PrimaryLineText.FontSize = singleSize;
+                }
+                else
+                {
+                    PrimaryLineText.FontSize = pSize;
+                }
+
                 PrimaryLineText.LineHeight = double.NaN;
                 SecondaryLineText.Visibility = Visibility.Collapsed;
+                LinesStack.VerticalAlignment = VerticalAlignment.Center;
             }
 
-            // 2. Phân bổ độ đậm chữ (FontWeight)
+            // 2. Giới hạn độ rộng tối đa (Max Width)
+            double maxW = settings.PrimaryMaxWidth > 100 ? settings.PrimaryMaxWidth : 480;
+            PrimaryLineText.MaxWidth = maxW;
+            SecondaryLineText.MaxWidth = maxW;
+
+            // 3. Phân bổ Căn lề Taskbar chính
+            var textAlignment = settings.PrimaryAlignment switch
+            {
+                PrimaryTaskbarAlignment.Left => TextAlignment.Left,
+                PrimaryTaskbarAlignment.Center => TextAlignment.Center,
+                _ => TextAlignment.Right
+            };
+            var horizAlignment = settings.PrimaryAlignment switch
+            {
+                PrimaryTaskbarAlignment.Left => HorizontalAlignment.Left,
+                PrimaryTaskbarAlignment.Center => HorizontalAlignment.Center,
+                _ => HorizontalAlignment.Right
+            };
+
+            PrimaryLineText.TextAlignment = textAlignment;
+            SecondaryLineText.TextAlignment = textAlignment;
+            PrimaryLineText.HorizontalAlignment = horizAlignment;
+            SecondaryLineText.HorizontalAlignment = horizAlignment;
+            LinesStack.HorizontalAlignment = horizAlignment;
+
+            // 4. Phân bổ độ đậm chữ (FontWeight)
             FontWeight pWeight = FontWeights.Normal;
             FontWeight sWeight = FontWeights.Normal;
 
@@ -246,7 +322,7 @@ public partial class DualTaskbarPrimaryWindow : Window
             PrimaryLineText.FontWeight = pWeight;
             SecondaryLineText.FontWeight = sWeight;
 
-            // 3. Áp dụng Brush màu (Karaoke Wipe hoặc Solid Color)
+            // 5. Áp dụng Brush màu (Karaoke Wipe hoặc Solid Color)
             bool enableKaraoke = settings.EnableKaraokeHighlight;
             bool pinyinWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.RomanizationOnly);
             bool transWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.TranslationOnly);
@@ -265,6 +341,12 @@ public partial class DualTaskbarPrimaryWindow : Window
             PrimaryLineText.Text = primaryText;
             Visibility = Visibility.Visible;
             EnsureDockedAndPositioned();
+
+            // 6. Kích hoạt Animation chuyển câu nếu đổi sang dòng mới
+            if (textChanged)
+            {
+                TriggerEntranceAnimation(settings.AnimationMode);
+            }
         });
     }
 
@@ -307,9 +389,24 @@ public partial class DualTaskbarPrimaryWindow : Window
                     trayWidth = Math.Max(160, trayRect.Right - trayRect.Left);
                 }
 
-                int targetWidth = 480;
+                var settings = _settingsManager.Current;
+                int targetWidth = (int)Math.Max(260, Math.Min(settings.PrimaryMaxWidth + 20, taskbarWidth - trayWidth - 60));
                 int targetHeight = Math.Max(38, taskbarHeight);
-                int targetX = Math.Max(10, taskbarWidth - trayWidth - targetWidth - 16);
+
+                int targetX;
+                switch (settings.PrimaryAlignment)
+                {
+                    case PrimaryTaskbarAlignment.Left:
+                        targetX = 60;
+                        break;
+                    case PrimaryTaskbarAlignment.Center:
+                        targetX = Math.Max(20, (taskbarWidth - trayWidth - targetWidth) / 2);
+                        break;
+                    default: // Right
+                        targetX = Math.Max(10, taskbarWidth - trayWidth - targetWidth - 16);
+                        break;
+                }
+
                 int targetY = (taskbarHeight - targetHeight) / 2;
 
                 NativeMethods.SetWindowPos(
