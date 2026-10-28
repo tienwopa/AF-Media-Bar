@@ -8,8 +8,9 @@ namespace AFMediaBar.Custom.Translation;
 /// Quản lý việc dịch và xử lý song ngữ:
 /// - Tự động sinh Pinyin offline 100% trong 0ms.
 /// - Nhận diện bài hát Tiếng Việt để tránh dịch thừa.
-/// - Cơ chế Fast-Track câu đầu tiên để loại bỏ hoàn toàn độ trễ khi chuyển bài.
-/// - Bộ nhớ đệm giữ toàn vẹn Pinyin và Lời dịch, không bị ghi đè.
+/// - Cơ chế Debounce thông minh giúp không bị nghẽn API Rate Limit (15 RPM) khi chuyển bài nhanh.
+/// - Đọc trước cache để hiển thị tức thì nếu bài hát đã từng được nghe.
+/// - Tự động làm mới dữ liệu khi người dùng đổi nhà cung cấp dịch trong Cài đặt.
 /// </summary>
 public sealed class BilingualLyricsManager
 {
@@ -18,6 +19,7 @@ public sealed class BilingualLyricsManager
         RegexOptions.Compiled);
 
     private readonly ITranslationService _translationService;
+    private readonly TranslationCacheService _cacheService;
     private readonly CustomSettingsManager _settingsManager;
     private readonly Dictionary<string, (LyricDocument doc, bool isVietnamese)> _documentCache = new(StringComparer.Ordinal);
     private CancellationTokenSource? _activeTranslationCts;
@@ -27,10 +29,21 @@ public sealed class BilingualLyricsManager
 
     public BilingualLyricsManager(
         ITranslationService translationService,
+        TranslationCacheService cacheService,
         CustomSettingsManager settingsManager)
     {
         _translationService = translationService;
+        _cacheService = cacheService;
         _settingsManager = settingsManager;
+        _settingsManager.SettingsChanged += SettingsManager_SettingsChanged;
+    }
+
+    private void SettingsManager_SettingsChanged(CustomSettings settings)
+    {
+        // Khi người dùng thay đổi thiết lập dịch (ví dụ đổi Provider sang Google Dịch hoặc Gemini),
+        // làm mới bộ nhớ đệm RAM để bài hát hiện tại được lập tức dịch lại theo cấu hình mới.
+        _documentCache.Clear();
+        _lastProcessedTrack = string.Empty;
     }
 
     public static bool IsVietnameseContent(IReadOnlyList<LyricLine> lines)
@@ -59,7 +72,7 @@ public sealed class BilingualLyricsManager
             return;
         }
 
-        // Tái sử dụng ngay lập tức nếu bài hát này đã được làm giàu
+        // Tái sử dụng ngay lập tức nếu bài hát này đã được làm giàu trong phiên hiện tại
         if (_documentCache.TryGetValue(trackKey, out var cached))
         {
             _lastProcessedTrack = trackKey;
@@ -73,13 +86,17 @@ public sealed class BilingualLyricsManager
         }
 
         _lastProcessedTrack = trackKey;
+        var targetLang = _settingsManager.Current.TargetLanguage;
 
-        // 1. Tự động sinh Pinyin cho tất cả các câu tiếng Trung NGAY LẬP TỨC (0ms)
+        // 1. Tự động sinh Pinyin (0ms) và đọc trước Cache ổ đĩa nếu đã có bản dịch
         var preparedLines = new List<LyricLine>(document.Lines.Count);
+        bool hasAnyMissingTranslation = false;
+
         for (int i = 0; i < document.Lines.Count; i++)
         {
             var orig = document.Lines[i];
             string? romanization = orig.Romanization;
+            string? translation = orig.Translation;
 
             // Nếu chưa có Pinyin mà là chữ Hán -> tự sinh Pinyin
             if (string.IsNullOrWhiteSpace(romanization) && PinyinGeneratorService.HasChinese(orig.Text))
@@ -87,10 +104,21 @@ public sealed class BilingualLyricsManager
                 romanization = PinyinGeneratorService.ToPinyin(orig.Text);
             }
 
+            // Kiểm tra cache ổ đĩa để hiển thị tức thì 0ms nếu từng dịch
+            if (string.IsNullOrWhiteSpace(translation) && _cacheService.TryGet(orig.Text, targetLang, out var cachedTrans))
+            {
+                translation = cachedTrans;
+            }
+
+            if (string.IsNullOrWhiteSpace(translation))
+            {
+                hasAnyMissingTranslation = true;
+            }
+
             preparedLines.Add(new LyricLine(orig.Start, orig.End, orig.Text)
             {
                 Words = orig.Words,
-                Translation = orig.Translation,
+                Translation = translation,
                 Romanization = romanization,
                 IsBackground = orig.IsBackground
             });
@@ -98,53 +126,41 @@ public sealed class BilingualLyricsManager
 
         var immediateDoc = new LyricDocument(preparedLines, document.SyncType, document.SourceFormat);
 
-        // Kiem tra tieng Viet
+        // Kiểm tra tiếng Việt
         bool isVietnamese = IsVietnameseContent(document.Lines);
         _documentCache[trackKey] = (immediateDoc, isVietnamese);
 
         if (isVietnamese && _settingsManager.Current.AutoSkipVietnamese)
         {
-            // Pinyin vẫn có thể hiện nếu cần, nhưng dịch thì bỏ qua
             BilingualLyricsReady?.Invoke(immediateDoc, true);
             return;
         }
 
-        // Bắn ngay document đã có Pinyin để hiển thị tức thì, không phải đợi dịch mạng!
+        // Bắn ngay document đã có Pinyin (và cache nếu có) để hiển thị tức thì, không để người dùng chờ đợi!
         BilingualLyricsReady?.Invoke(immediateDoc, false);
 
-        // 2. Chạy dịch luồng nền với Fast-Track cho câu đầu tiên
+        // Nếu tất cả các câu đều đã có sẵn trong cache thì không cần gọi mạng
+        if (!hasAnyMissingTranslation)
+        {
+            return;
+        }
+
+        // 2. Chạy dịch luồng nền với cơ chế Debounce 350ms
         _activeTranslationCts?.Cancel();
         _activeTranslationCts?.Dispose();
         _activeTranslationCts = new CancellationTokenSource();
 
         var token = _activeTranslationCts.Token;
-        var targetLang = _settingsManager.Current.TargetLanguage;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                // FAST-TRACK: Dịch ngay câu đầu tiên để người nghe thấy lời dịch tức thì
-                if (preparedLines.Count > 0)
-                {
-                    var firstText = preparedLines[0].Text;
-                    var firstTrans = await _translationService.TranslateAsync(firstText, targetLang, token).ConfigureAwait(false);
-                    if (!string.IsNullOrWhiteSpace(firstTrans) && !token.IsCancellationRequested)
-                    {
-                        preparedLines[0] = new LyricLine(preparedLines[0].Start, preparedLines[0].End, preparedLines[0].Text)
-                        {
-                            Words = preparedLines[0].Words,
-                            Translation = firstTrans,
-                            Romanization = preparedLines[0].Romanization,
-                            IsBackground = preparedLines[0].IsBackground
-                        };
-                        var partialDoc = new LyricDocument(preparedLines, document.SyncType, document.SourceFormat);
-                        _documentCache[trackKey] = (partialDoc, false);
-                        BilingualLyricsReady?.Invoke(partialDoc, false);
-                    }
-                }
+                // DEBOUNCE: Nếu người dùng chuyển bài liên tục trong 350ms, tác vụ cũ sẽ bị hủy
+                // trước khi thực sự gửi yêu cầu mạng, tránh lãng phí hạn ngạch API (15 RPM)
+                await Task.Delay(350, token).ConfigureAwait(false);
+                if (token.IsCancellationRequested) return;
 
-                // BATCH TOÀN BỘ CÁC CÂU CÒN LẠI
                 var originalTexts = preparedLines.Select(l => l.Text).ToList();
                 var translatedTexts = await _translationService.TranslateBatchAsync(originalTexts, targetLang, token).ConfigureAwait(false);
 
@@ -154,9 +170,14 @@ public sealed class BilingualLyricsManager
                 for (int i = 0; i < preparedLines.Count; i++)
                 {
                     var orig = preparedLines[i];
-                    var trans = (i < translatedTexts.Count && !string.IsNullOrWhiteSpace(translatedTexts[i]))
-                        ? translatedTexts[i]
-                        : orig.Translation;
+                    string? trans = orig.Translation;
+
+                    if (i < translatedTexts.Count &&
+                        !string.IsNullOrWhiteSpace(translatedTexts[i]) &&
+                        TranslationCacheService.IsValidTranslation(orig.Text, targetLang, translatedTexts[i]))
+                    {
+                        trans = translatedTexts[i];
+                    }
 
                     fullyEnrichedLines.Add(new LyricLine(orig.Start, orig.End, orig.Text)
                     {

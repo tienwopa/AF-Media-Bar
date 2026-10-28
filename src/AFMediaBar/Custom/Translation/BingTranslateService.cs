@@ -50,7 +50,9 @@ public sealed class BingTranslateService : ITranslationService, IDisposable
                     respData.TryGetProperty("translatedText", out var transElem))
                 {
                     var result = transElem.GetString();
-                    if (!string.IsNullOrWhiteSpace(result) && !result.Contains("MYMEMORY WARNING"))
+                    if (!string.IsNullOrWhiteSpace(result) &&
+                        !result.Contains("MYMEMORY WARNING") &&
+                        TranslationCacheService.IsValidTranslation(text, targetLanguage, result))
                     {
                         _cacheService.Set(text, targetLanguage, result);
                         return result;
@@ -64,7 +66,7 @@ public sealed class BingTranslateService : ITranslationService, IDisposable
             System.Diagnostics.Debug.WriteLine($"[BingTranslateService] Loi goi API: {ex.Message}");
         }
 
-        return text;
+        return string.Empty;
     }
 
     public async Task<IReadOnlyList<string>> TranslateBatchAsync(
@@ -83,7 +85,7 @@ public sealed class BingTranslateService : ITranslationService, IDisposable
 
         for (int i = 0; i < results.Length; i++)
         {
-            results[i] ??= texts[i];
+            results[i] ??= string.Empty;
         }
 
         return results;

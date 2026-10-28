@@ -87,10 +87,10 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
                     if (parts.GetArrayLength() > 0)
                     {
                         var translated = parts[0].GetProperty("text").GetString()?.Trim();
-                        if (!string.IsNullOrWhiteSpace(translated))
+                        if (TranslationCacheService.IsValidTranslation(text, targetLanguage, translated))
                         {
-                            _cacheService.Set(text, targetLanguage, translated);
-                            return translated;
+                            _cacheService.Set(text, targetLanguage, translated!);
+                            return translated!;
                         }
                     }
                 }
@@ -147,8 +147,8 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
             return results;
         }
 
-        // Gom nhóm 25 dòng mỗi lượt để Gemini xử lý chuẩn xác không sót dòng
-        const int chunkSize = 25;
+        // Gom nhóm 50 dòng mỗi lượt để xử lý trọn vẹn cả bài hát trong 1 request duy nhất, tiết kiệm tối đa quota 15 RPM
+        const int chunkSize = 50;
         for (int chunkStart = 0; chunkStart < missingTexts.Count; chunkStart += chunkSize)
         {
             if (cancellationToken.IsCancellationRequested) break;
@@ -223,8 +223,15 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
                                     {
                                         var original = chunkLines[j];
                                         var trans = lines[j];
-                                        _cacheService.Set(original, targetLanguage, trans);
-                                        results[chunkIndices[j]] = trans;
+                                        if (TranslationCacheService.IsValidTranslation(original, targetLanguage, trans))
+                                        {
+                                            _cacheService.Set(original, targetLanguage, trans);
+                                            results[chunkIndices[j]] = trans;
+                                        }
+                                        else
+                                        {
+                                            results[chunkIndices[j]] = string.Empty;
+                                        }
                                     }
                                     chunkSuccess = true;
                                 }
@@ -239,7 +246,7 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
                 System.Diagnostics.Debug.WriteLine($"[GeminiTranslate] Chunk loi: {ex.Message}");
             }
 
-            // Fallback cho chunk này nếu Gemini không trả về đủ dòng hoặc lỗi API
+            // Fallback sang Google Translate nếu Gemini không trả về đủ dòng hoặc quá hạn ngạch (429)
             if (!chunkSuccess)
             {
                 var fallbackChunk = await _fallbackService.TranslateBatchAsync(chunkLines, targetLanguage, cancellationToken).ConfigureAwait(false);
@@ -252,7 +259,7 @@ public sealed class GeminiTranslateService : ITranslationService, IDisposable
 
         for (int i = 0; i < results.Length; i++)
         {
-            results[i] ??= texts[i];
+            results[i] ??= string.Empty;
         }
 
         return results;

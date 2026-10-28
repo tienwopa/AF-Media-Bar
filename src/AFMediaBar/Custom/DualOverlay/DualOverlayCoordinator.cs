@@ -64,6 +64,14 @@ public sealed class DualOverlayCoordinator : IDisposable
         if (!settings.EnableDualTaskbarLyrics || !settings.EnableBilingualLyrics)
         {
             HideAllWindows();
+            return;
+        }
+
+        var snapshot = _mediaSessionService.CurrentSnapshot;
+        if (snapshot != null && snapshot.IsConnected && snapshot.IsPlaying && snapshot.Lyrics != null && snapshot.Lyrics.Document.Lines.Count > 0)
+        {
+            var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
+            _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
         }
     }
 
@@ -173,6 +181,17 @@ public sealed class DualOverlayCoordinator : IDisposable
         if (_isCurrentTrackVietnamese && settings.AutoSkipVietnamese)
         {
             translation = null;
+        }
+
+        // Bảo vệ hiển thị: Nếu bản dịch rỗng, trùng lặp câu gốc hoặc vẫn là chữ Hán khi đích là Tiếng Việt
+        if (!string.IsNullOrWhiteSpace(translation))
+        {
+            var isDuplicateOriginal = transLine != null && string.Equals(translation.Trim(), transLine.Text.Trim(), StringComparison.OrdinalIgnoreCase);
+            var isStillChinese = settings.TargetLanguage.StartsWith("vi", StringComparison.OrdinalIgnoreCase) && PinyinGeneratorService.HasChinese(translation);
+            if (isDuplicateOriginal || isStillChinese)
+            {
+                translation = null;
+            }
         }
 
         if (pinyinLine != null && string.IsNullOrWhiteSpace(pinyin) && PinyinGeneratorService.HasChinese(pinyinLine.Text))

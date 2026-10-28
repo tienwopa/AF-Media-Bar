@@ -23,6 +23,7 @@ public sealed class TranslationCacheService
     public TranslationCacheService()
     {
         EnsureCacheDirectory();
+        PurgeCorruptedCacheInBackground();
     }
 
     private static void EnsureCacheDirectory()
@@ -37,6 +38,90 @@ public sealed class TranslationCacheService
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[TranslationCache] Khong the tao thu muc cache: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Kiểm tra tính hợp lệ của bản dịch: không được rỗng, không được trùng hoàn toàn câu gốc,
+    /// và không được chứa chữ Hán nếu ngôn ngữ đích là Tiếng Việt.
+    /// </summary>
+    public static bool IsValidTranslation(string originalText, string targetLanguage, string? translatedText)
+    {
+        if (string.IsNullOrWhiteSpace(translatedText))
+        {
+            return false;
+        }
+
+        var trimmedOriginal = originalText.Trim();
+        var trimmedTranslated = translatedText.Trim();
+
+        // Không hợp lệ nếu bản dịch y hệt câu gốc
+        if (string.Equals(trimmedOriginal, trimmedTranslated, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Không hợp lệ nếu ngôn ngữ đích là Tiếng Việt ("vi") mà kết quả vẫn chứa ký tự Hán tự tiếng Trung
+        if (targetLanguage.StartsWith("vi", StringComparison.OrdinalIgnoreCase) &&
+            PinyinGeneratorService.HasChinese(trimmedTranslated))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Quét dọn các tệp cache bị nhiễm độc văn bản gốc tiếng Trung ở chế độ chạy ngầm.
+    /// </summary>
+    private static void PurgeCorruptedCacheInBackground()
+    {
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (!Directory.Exists(CacheDirectory)) return;
+                var files = Directory.GetFiles(CacheDirectory, "*.cache");
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        var content = File.ReadAllText(file, Encoding.UTF8);
+                        if (PinyinGeneratorService.HasChinese(content))
+                        {
+                            File.Delete(file);
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[TranslationCache] Loi don dep cache: {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// Xóa toàn bộ bộ nhớ đệm cả trên RAM lẫn ổ đĩa.
+    /// </summary>
+    public void ClearCache()
+    {
+        _memoryCache.Clear();
+        try
+        {
+            if (Directory.Exists(CacheDirectory))
+            {
+                var files = Directory.GetFiles(CacheDirectory, "*.cache");
+                foreach (var f in files)
+                {
+                    try { File.Delete(f); } catch { }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[TranslationCache] Loi clear cache: {ex.Message}");
         }
     }
 
@@ -66,8 +151,13 @@ public sealed class TranslationCacheService
         // 1. Kiem tra tren RAM
         if (_memoryCache.TryGetValue(key, out var memoryHit))
         {
-            translatedText = memoryHit;
-            return true;
+            if (IsValidTranslation(text, targetLanguage, memoryHit))
+            {
+                translatedText = memoryHit;
+                return true;
+            }
+            // Cache tren RAM bi nhiem doc -> loai bo
+            _memoryCache.TryRemove(key, out _);
         }
 
         // 2. Kiem tra tren O dia
@@ -77,9 +167,19 @@ public sealed class TranslationCacheService
             if (File.Exists(filePath))
             {
                 var diskHit = File.ReadAllText(filePath, Encoding.UTF8);
-                _memoryCache[key] = diskHit;
-                translatedText = diskHit;
-                return true;
+                if (IsValidTranslation(text, targetLanguage, diskHit))
+                {
+                    _memoryCache[key] = diskHit;
+                    translatedText = diskHit;
+                    return true;
+                }
+
+                // File cache tren dia khong hop le -> xoa bo tranh nhiem doc tiep
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch { }
             }
         }
         catch (Exception ex)
@@ -91,11 +191,11 @@ public sealed class TranslationCacheService
     }
 
     /// <summary>
-    /// Lưu bản dịch vào cả RAM và ổ cứng.
+    /// Lưu bản dịch vào cả RAM và ổ cứng nếu bản dịch hợp lệ.
     /// </summary>
     public void Set(string text, string targetLanguage, string translatedText)
     {
-        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(translatedText))
+        if (string.IsNullOrWhiteSpace(text) || !IsValidTranslation(text, targetLanguage, translatedText))
         {
             return;
         }

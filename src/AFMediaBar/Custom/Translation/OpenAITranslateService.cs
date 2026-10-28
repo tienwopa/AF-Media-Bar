@@ -84,10 +84,10 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
                 if (choices.GetArrayLength() > 0)
                 {
                     var content = choices[0].GetProperty("message").GetProperty("content").GetString()?.Trim();
-                    if (!string.IsNullOrWhiteSpace(content))
+                    if (TranslationCacheService.IsValidTranslation(text, targetLanguage, content))
                     {
-                        _cacheService.Set(text, targetLanguage, content);
-                        return content;
+                        _cacheService.Set(text, targetLanguage, content!);
+                        return content!;
                     }
                 }
             }
@@ -143,7 +143,7 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
             return results;
         }
 
-        const int chunkSize = 25;
+        const int chunkSize = 50;
         for (int chunkStart = 0; chunkStart < missingTexts.Count; chunkStart += chunkSize)
         {
             if (cancellationToken.IsCancellationRequested) break;
@@ -162,22 +162,31 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
 
             var url = $"{baseUrl}/chat/completions";
 
-            var prompt = $"Dịch chính xác {count} câu sau sang Tiếng Việt tự nhiên, phù hợp lời bài hát.\nQuy tắc: Trả về đúng {count} dòng, mỗi dòng là một câu dịch, không đánh số, không thêm văn bản khác.\n\n" + string.Join("\n", chunkLines);
-
-            var requestBody = new
+            var sbPrompt = new StringBuilder();
+            sbPrompt.AppendLine($"Bạn là dịch giả lời bài hát chuyên nghiệp. Hãy dịch chính xác {count} câu lời bài hát sau sang Tiếng Việt ({targetLanguage}) một cách tự nhiên, cảm xúc.");
+            sbPrompt.AppendLine("QUY TẮC:");
+            sbPrompt.AppendLine($"1. Phải trả về đúng chính xác {count} dòng kết quả.");
+            sbPrompt.AppendLine("2. Mỗi dòng kết quả tương ứng một câu hát gốc theo thứ tự.");
+            sbPrompt.AppendLine("3. Chỉ trả về nội dung lời dịch Tiếng Việt, không thêm đánh số thứ tự hoặc markdown.");
+            sbPrompt.AppendLine("\nNỘI DUNG CẦN DỊCH:");
+            for (int i = 0; i < chunkLines.Count; i++)
             {
-                model,
-                messages = new[]
-                {
-                    new { role = "system", content = "Bạn là dịch giả lời bài hát chuyên nghiệp." },
-                    new { role = "user", content = prompt }
-                },
-                temperature = 0.3
-            };
+                sbPrompt.AppendLine(chunkLines[i]);
+            }
 
             bool chunkSuccess = false;
             try
             {
+                var requestBody = new
+                {
+                    model,
+                    messages = new[]
+                    {
+                        new { role = "user", content = sbPrompt.ToString() }
+                    },
+                    temperature = 0.3
+                };
+
                 using var request = new HttpRequestMessage(HttpMethod.Post, url)
                 {
                     Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
@@ -207,8 +216,15 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
                                 {
                                     var orig = chunkLines[j];
                                     var trans = lines[j];
-                                    _cacheService.Set(orig, targetLanguage, trans);
-                                    results[chunkIndices[j]] = trans;
+                                    if (TranslationCacheService.IsValidTranslation(orig, targetLanguage, trans))
+                                    {
+                                        _cacheService.Set(orig, targetLanguage, trans);
+                                        results[chunkIndices[j]] = trans;
+                                    }
+                                    else
+                                    {
+                                        results[chunkIndices[j]] = string.Empty;
+                                    }
                                 }
                                 chunkSuccess = true;
                             }
@@ -234,7 +250,7 @@ public sealed class OpenAITranslateService : ITranslationService, IDisposable
 
         for (int i = 0; i < results.Length; i++)
         {
-            results[i] ??= texts[i];
+            results[i] ??= string.Empty;
         }
 
         return results;

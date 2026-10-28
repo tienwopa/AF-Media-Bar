@@ -6,13 +6,13 @@ namespace AFMediaBar.Custom.Translation;
 
 /// <summary>
 /// Dịch vụ dịch thuật sử dụng Google Translate Web API công khai.
-/// Hỗ trợ gom lô (batching) và tích hợp sẵn TranslationCacheService.
+/// Hỗ trợ phương thức HTTP POST chống chặn, cơ chế fallback đa endpoint và tích hợp sẵn TranslationCacheService.
 /// </summary>
 public sealed class GoogleTranslateService : ITranslationService, IDisposable
 {
     private static readonly HttpClient HttpClient = new()
     {
-        Timeout = TimeSpan.FromSeconds(6)
+        Timeout = TimeSpan.FromSeconds(8)
     };
 
     private readonly TranslationCacheService _cacheService;
@@ -35,63 +35,171 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
             return string.Empty;
         }
 
-        // 1. Kiem tra cache
+        // 1. Kiểm tra cache trước
         if (_cacheService.TryGet(text, targetLanguage, out var cached))
         {
             return cached;
         }
 
+        var translated = await TranslateRawAsync(text, targetLanguage, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(translated) && TranslationCacheService.IsValidTranslation(text, targetLanguage, translated))
+        {
+            _cacheService.Set(text, targetLanguage, translated);
+            return translated;
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Thực hiện dịch văn bản thô qua Google Translate với cơ chế thử lại đa tầng (Multi-tier Fallback).
+    /// </summary>
+    private static async Task<string> TranslateRawAsync(string text, string targetLanguage, CancellationToken cancellationToken)
+    {
+        // Tầng 1: Sử dụng HTTP POST tới translate.googleapis.com (không bị giới hạn độ dài URL và tránh chặn WAF)
         try
         {
-            var url = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={targetLanguage}&dt=t&q={Uri.EscapeDataString(text)}";
-            using var response = await HttpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
+            const string postUrl = "https://translate.googleapis.com/translate_a/single?client=gtx&dt=t";
+            var formFields = new Dictionary<string, string>
             {
-                return text; // Fallback giu nguyen text neu mang loi
-            }
+                ["sl"] = "auto",
+                ["tl"] = targetLanguage,
+                ["q"] = text
+            };
 
-            var jsonStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            using var doc = await JsonDocument.ParseAsync(jsonStream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            using var formContent = new FormUrlEncodedContent(formFields);
+            using var response = await HttpClient.PostAsync(postUrl, formContent, cancellationToken).ConfigureAwait(false);
 
-            var root = doc.RootElement;
-            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+            if (response.IsSuccessStatusCode)
             {
-                var sentencesArray = root[0];
-                if (sentencesArray.ValueKind == JsonValueKind.Array)
+                var jsonStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(jsonStream, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                var root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
                 {
-                    var sb = new StringBuilder();
-                    foreach (var sentence in sentencesArray.EnumerateArray())
+                    var sentencesArray = root[0];
+                    if (sentencesArray.ValueKind == JsonValueKind.Array)
                     {
-                        if (sentence.ValueKind == JsonValueKind.Array && sentence.GetArrayLength() > 0)
+                        var sb = new StringBuilder();
+                        foreach (var sentence in sentencesArray.EnumerateArray())
                         {
-                            var translatedPart = sentence[0].GetString();
-                            if (!string.IsNullOrEmpty(translatedPart))
+                            if (sentence.ValueKind == JsonValueKind.Array && sentence.GetArrayLength() > 0)
                             {
-                                sb.Append(translatedPart);
+                                var translatedPart = sentence[0].GetString();
+                                if (!string.IsNullOrEmpty(translatedPart))
+                                {
+                                    sb.Append(translatedPart);
+                                }
                             }
                         }
-                    }
 
-                    var result = sb.ToString();
-                    if (!string.IsNullOrWhiteSpace(result))
-                    {
-                        _cacheService.Set(text, targetLanguage, result);
-                        return result;
+                        var result = sb.ToString();
+                        if (TranslationCacheService.IsValidTranslation(text, targetLanguage, result))
+                        {
+                            return result;
+                        }
                     }
                 }
             }
         }
-        catch (OperationCanceledException)
-        {
-            // Tac vu bi huy
-        }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[GoogleTranslate] Loi goi API: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[GoogleTranslate] Post primary loi: {ex.Message}");
         }
 
-        return text;
+        // Tầng 2: Fallback sang clients5.google.com endpoint (Chrome extension translation endpoint)
+        try
+        {
+            var chromeUrl = $"https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl={Uri.EscapeDataString(targetLanguage)}";
+            var formFields = new Dictionary<string, string>
+            {
+                ["q"] = text
+            };
+
+            using var formContent = new FormUrlEncodedContent(formFields);
+            using var response = await HttpClient.PostAsync(chromeUrl, formContent, cancellationToken).ConfigureAwait(false);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var jsonStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(jsonStream, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                var root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+                {
+                    var firstElem = root[0];
+                    string? trans = null;
+
+                    if (firstElem.ValueKind == JsonValueKind.Array && firstElem.GetArrayLength() > 0)
+                    {
+                        trans = firstElem[0].GetString();
+                    }
+                    else if (firstElem.ValueKind == JsonValueKind.String)
+                    {
+                        trans = firstElem.GetString();
+                    }
+
+                    if (TranslationCacheService.IsValidTranslation(text, targetLanguage, trans))
+                    {
+                        return trans!;
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[GoogleTranslate] Clients5 fallback loi: {ex.Message}");
+        }
+
+        // Tầng 3: Fallback qua HTTP GET truyền thống
+        try
+        {
+            var getUrl = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={targetLanguage}&dt=t&q={Uri.EscapeDataString(text)}";
+            using var response = await HttpClient.GetAsync(getUrl, cancellationToken).ConfigureAwait(false);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var jsonStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(jsonStream, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                var root = doc.RootElement;
+                if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+                {
+                    var sentencesArray = root[0];
+                    if (sentencesArray.ValueKind == JsonValueKind.Array)
+                    {
+                        var sb = new StringBuilder();
+                        foreach (var sentence in sentencesArray.EnumerateArray())
+                        {
+                            if (sentence.ValueKind == JsonValueKind.Array && sentence.GetArrayLength() > 0)
+                            {
+                                var translatedPart = sentence[0].GetString();
+                                if (!string.IsNullOrEmpty(translatedPart))
+                                {
+                                    sb.Append(translatedPart);
+                                }
+                            }
+                        }
+
+                        var result = sb.ToString();
+                        if (TranslationCacheService.IsValidTranslation(text, targetLanguage, result))
+                        {
+                            return result;
+                        }
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[GoogleTranslate] Get fallback loi: {ex.Message}");
+        }
+
+        return string.Empty;
     }
 
     public async Task<IReadOnlyList<string>> TranslateBatchAsync(
@@ -108,7 +216,7 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
         var missingIndices = new List<int>();
         var missingTexts = new List<string>();
 
-        // 1. Kiem tra cache cho tung dong truoc
+        // 1. Kiểm tra cache cho từng dòng trước
         for (int i = 0; i < texts.Count; i++)
         {
             var t = texts[i];
@@ -127,14 +235,14 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
             }
         }
 
-        // Neu tat ca deu da co trong cache thi tra ve luon!
+        // Nếu tất cả đều đã có trong cache thì trả về ngay!
         if (missingIndices.Count == 0)
         {
             return results;
         }
 
-        // 2. Gom nhung dong chua co cache thanh cac chunk toi da 30 dong de dich 1 luot
-        const int chunkSize = 30;
+        // 2. Gom những dòng chưa có cache thành các chunk tối đa 25 dòng
+        const int chunkSize = 25;
         for (int chunkStart = 0; chunkStart < missingTexts.Count; chunkStart += chunkSize)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -146,29 +254,41 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
             var chunkLines = missingTexts.GetRange(chunkStart, count);
             var chunkIndices = missingIndices.GetRange(chunkStart, count);
 
-            // Dung delimiter ky tu xuong dong
             var combinedText = string.Join("\n", chunkLines);
-            var translatedCombined = await TranslateAsync(combinedText, targetLanguage, cancellationToken).ConfigureAwait(false);
+            var translatedCombined = await TranslateRawAsync(combinedText, targetLanguage, cancellationToken).ConfigureAwait(false);
 
-            var translatedLines = translatedCombined.Split('\n');
-            for (int j = 0; j < count; j++)
+            if (!string.IsNullOrWhiteSpace(translatedCombined))
             {
-                var original = chunkLines[j];
-                var translated = j < translatedLines.Length ? translatedLines[j].Trim() : original;
-
-                if (!string.IsNullOrWhiteSpace(translated))
+                var translatedLines = translatedCombined.Split('\n');
+                for (int j = 0; j < count; j++)
                 {
-                    _cacheService.Set(original, targetLanguage, translated);
-                }
+                    var original = chunkLines[j];
+                    var trans = j < translatedLines.Length ? translatedLines[j].Trim() : string.Empty;
 
-                results[chunkIndices[j]] = translated;
+                    if (TranslationCacheService.IsValidTranslation(original, targetLanguage, trans))
+                    {
+                        _cacheService.Set(original, targetLanguage, trans);
+                        results[chunkIndices[j]] = trans;
+                    }
+                    else
+                    {
+                        results[chunkIndices[j]] = string.Empty;
+                    }
+                }
+            }
+            else
+            {
+                for (int j = 0; j < count; j++)
+                {
+                    results[chunkIndices[j]] = string.Empty;
+                }
             }
         }
 
-        // Dien lai gia tri mac dinh cho cac dong bi bo sot neu co
+        // Tuyệt đối không gán lời gốc vào kết quả dịch nếu dịch thất bại
         for (int i = 0; i < results.Length; i++)
         {
-            results[i] ??= texts[i];
+            results[i] ??= string.Empty;
         }
 
         return results;
@@ -176,6 +296,5 @@ public sealed class GoogleTranslateService : ITranslationService, IDisposable
 
     public void Dispose()
     {
-        // Khong dispose static HttpClient
     }
 }
