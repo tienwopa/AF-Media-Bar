@@ -16,14 +16,14 @@
     "长歌词滚动、格式净化与贴边折叠默认开启；假名标注过滤、低电量提醒和自动内存优化默认关闭。",
     "改善取色过渡与封面交互，修复网速箭头漂移、启动提示残留和重复下载，减少启动资源开销。"
   ],
-  "releaseNotesUrl": "https://github.com/Fervent-Tempo/AF-Media-Bar/releases/tag/v1.6.0",
-  "releasePageUrl": "https://github.com/Fervent-Tempo/AF-Media-Bar/releases/latest",
+  "releaseNotesUrl": "https://github.com/tienwopa/AF-Media-Bar/releases/tag/v1.6.0",
+  "releasePageUrl": "https://github.com/tienwopa/AF-Media-Bar/releases/latest",
   "downloads": {
-    "github": "https://github.com/Fervent-Tempo/AF-Media-Bar/releases/download/v1.6.0/AFMediaBar-v1.6.0-win-x64.zip"
+    "github": "https://github.com/tienwopa/AF-Media-Bar/releases/download/v1.6.0/AFMediaBar-v1.6.0-win-x64.zip"
   },
   "packages": [
     {
-      "url": "https://github.com/Fervent-Tempo/AF-Media-Bar/releases/download/v1.6.0/AFMediaBar-Setup-v1.6.0-win-x64.exe",
+      "url": "https://github.com/tienwopa/AF-Media-Bar/releases/download/v1.6.0/AFMediaBar-Setup-v1.6.0-win-x64.exe",
       "size": 111021103,
       "sha256": "466605e43a6fa76d32065e62cd475065da736cf7ad768707f6d9e8f5b1b2050b"
     }
