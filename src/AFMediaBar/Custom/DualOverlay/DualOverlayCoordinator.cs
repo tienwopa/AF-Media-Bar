@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Classes.Services;
+using AFMediaBar.Classes.Services.Lyrics;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Translation;
 
@@ -28,6 +29,7 @@ public sealed class DualOverlayCoordinator : IDisposable
     private readonly CustomSettingsManager _settingsManager;
 
     private LyricDocument? _activeDocument;
+    private string? _activeTrackKey;
     private bool _isCurrentTrackVietnamese;
     private readonly DispatcherTimer _syncTimer;
 
@@ -63,6 +65,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         if (snapshot != null && snapshot.IsConnected && snapshot.IsPlaying && snapshot.Lyrics != null && snapshot.Lyrics.Document.Lines.Count > 0)
         {
             var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
+            _activeTrackKey = trackKey;
             _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
             _activeDocument = snapshot.Lyrics.Document;
             _syncTimer.Start();
@@ -73,25 +76,41 @@ public sealed class DualOverlayCoordinator : IDisposable
     {
         if (!settings.EnableDualTaskbarLyrics || !settings.EnableBilingualLyrics)
         {
+            _activeDocument = null;
+            _activeTrackKey = null;
+            _isCurrentTrackVietnamese = false;
             _syncTimer.Stop();
             HideAllWindows();
             return;
         }
 
+        HideAllWindows();
         var snapshot = _mediaSessionService.CurrentSnapshot;
         if (snapshot != null && snapshot.IsConnected && snapshot.IsPlaying && snapshot.Lyrics != null && snapshot.Lyrics.Document.Lines.Count > 0)
         {
             var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
+            _activeTrackKey = trackKey;
             _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
+            _activeDocument = string.Equals(BilingualLyricsManager.ActiveTrackKey, trackKey, StringComparison.Ordinal)
+                ? BilingualLyricsManager.ActiveEnrichedDocument ?? snapshot.Lyrics.Document
+                : snapshot.Lyrics.Document;
             if (!_syncTimer.IsEnabled) _syncTimer.Start();
+        }
+        else
+        {
+            _activeDocument = null;
+            _activeTrackKey = null;
+            _isCurrentTrackVietnamese = false;
+            _syncTimer.Stop();
         }
     }
 
     private void MediaSessionService_SnapshotChanged(object? sender, MediaSnapshot snapshot)
     {
-        if (!snapshot.IsConnected || !snapshot.IsPlaying || snapshot.Lyrics == null || snapshot.Lyrics.Document.Lines.Count == 0)
+        if (!snapshot.IsConnected || !snapshot.IsPlaying)
         {
             _activeDocument = null;
+            _activeTrackKey = null;
             _isCurrentTrackVietnamese = false;
             _syncTimer.Stop();
             HideAllWindows();
@@ -99,9 +118,25 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
+        if (!string.Equals(_activeTrackKey, trackKey, StringComparison.Ordinal))
+        {
+            _activeDocument = null;
+            _isCurrentTrackVietnamese = false;
+            _activeTrackKey = trackKey;
+            HideAllWindows();
+        }
+
+        if (snapshot.Lyrics?.Document.Lines.Count is not > 0)
+        {
+            if (_activeDocument == null) _syncTimer.Stop();
+            return;
+        }
+
         _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
 
-        _activeDocument ??= snapshot.Lyrics.Document;
+        _activeDocument = string.Equals(BilingualLyricsManager.ActiveTrackKey, trackKey, StringComparison.Ordinal)
+            ? BilingualLyricsManager.ActiveEnrichedDocument ?? snapshot.Lyrics.Document
+            : snapshot.Lyrics.Document;
         if (!_syncTimer.IsEnabled)
         {
             _syncTimer.Start();
@@ -110,48 +145,25 @@ public sealed class DualOverlayCoordinator : IDisposable
 
     private void BilingualLyricsManager_BilingualLyricsReady(LyricDocument enrichedDoc, bool isVietnamese)
     {
+        var snapshot = _mediaSessionService.CurrentSnapshot;
+        if (snapshot == null || !string.Equals(_activeTrackKey, BilingualLyricsManager.ActiveTrackKey, StringComparison.Ordinal) ||
+            !string.Equals(BilingualLyricsManager.ActiveTrackKey,
+                $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}", StringComparison.Ordinal)) return;
         _activeDocument = enrichedDoc;
         _isCurrentTrackVietnamese = isVietnamese;
     }
 
     /// <summary>
-    /// Khớp câu hát hiện tại và câu kế tiếp có xử lý khoảng lặng dạo nhạc (Interlude).
+    /// Khớp câu hiện tại và câu kế tiếp theo cùng mốc bắt đầu mà MediaBar sử dụng.
     /// </summary>
     private static (LyricLine? current, LyricLine? next) MatchCurrentAndNextLine(IReadOnlyList<LyricLine> lines, double seconds)
     {
         if (lines.Count == 0) return (null, null);
 
-        for (int i = 0; i < lines.Count; i++)
-        {
-            var line = lines[i];
-            if (seconds >= line.Start && seconds <= line.End)
-            {
-                var next = (i + 1 < lines.Count) ? lines[i + 1] : null;
-                return (line, next);
-            }
-            if (seconds < line.Start)
-            {
-                if (i > 0)
-                {
-                    if (seconds <= lines[i - 1].End)
-                    {
-                        return (lines[i - 1], lines[i]);
-                    }
-                    else
-                    {
-                        // Đang trong khoảng dạo nhạc (Interlude): câu cũ đã hết, câu mới chưa tới
-                        return (null, lines[i]);
-                    }
-                }
-                else
-                {
-                    return (null, lines[0]);
-                }
-            }
-        }
-
-        var last = lines[^1];
-        return (seconds >= last.Start && seconds <= last.End ? last : null, null);
+        var index = LyricLineIndexPolicy.FindIndex(lines, seconds);
+        return index < 0
+            ? (null, lines[0])
+            : (lines[index], index + 1 < lines.Count ? lines[index + 1] : null);
     }
 
     /// <summary>
@@ -202,6 +214,11 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         var (currLine, nextLine) = MatchCurrentAndNextLine(lines, currentSeconds);
+        if (currLine == null)
+        {
+            if (snapshot.Lyrics != null) HideAllWindows();
+            return;
+        }
         string? nextText = nextLine?.Text;
 
         // Neo câu dịch và Pinyin trực tiếp vào câu đang hát để triệt tiêu 100% lỗi lệch câu
@@ -233,25 +250,32 @@ public sealed class DualOverlayCoordinator : IDisposable
         // Kiểm tra nhận diện Karaoke thông minh
         double transProgress = 1.0;
         double pinyinProgress = 1.0;
+        double? transScrollProgress = null;
+        double? pinyinScrollProgress = null;
 
-        if (currLine != null && settings.EnableKaraokeHighlight)
+        if (currLine != null)
         {
-            // Offset ms chỉ điều chỉnh nhịp quét sớm/muộn cho mượt mà, không làm lệch câu
             double transSeconds = currentSeconds + (settings.TranslationOffsetMs / 1000.0);
             double pinyinSeconds = currentSeconds + (settings.RomanizationOffsetMs / 1000.0);
-
             bool hasKaraoke = HasRealKaraokeWords(currLine);
 
-            if (!settings.OnlyKaraokeWhenAvailable || hasKaraoke)
+            if (hasKaraoke)
             {
-                transProgress = CalculateTranslationProgress(currLine, transSeconds);
-                pinyinProgress = CalculatePinyinProgress(currLine, pinyin, pinyinSeconds);
+                transScrollProgress = CalculateTranslationProgress(currLine, transSeconds);
+                pinyinScrollProgress = CalculatePinyinProgress(currLine, pinyin, pinyinSeconds);
+            }
+
+            if (settings.EnableKaraokeHighlight && (!settings.OnlyKaraokeWhenAvailable || hasKaraoke))
+            {
+                transProgress = transScrollProgress ?? CalculateTranslationProgress(currLine, transSeconds);
+                pinyinProgress = pinyinScrollProgress ?? CalculatePinyinProgress(currLine, pinyin, pinyinSeconds);
             }
         }
 
         // Điều phối nội dung tới Taskbar chính hoặc Màn hình 2
 
-        DispatchContent(currLine?.Text, translation, transProgress, pinyin, pinyinProgress, nextText, settings);
+        DispatchContent(currLine?.Text, translation, transProgress, transScrollProgress,
+            pinyin, pinyinProgress, pinyinScrollProgress, nextText, settings);
     }
 
     /// <summary>
@@ -389,11 +413,21 @@ public sealed class DualOverlayCoordinator : IDisposable
 
         string? originalText,
 
-        string? translation, double transProgress,
-        string? pinyin, double pinyinProgress,
+        string? translation, double transProgress, double? transScrollProgress,
+        string? pinyin, double pinyinProgress, double? pinyinScrollProgress,
         string? nextLineText,
         CustomSettings settings)
     {
+        double ScrollProgressFor(string? text)
+        {
+            if (text == null) return double.NaN;
+            if (string.Equals(text, translation, StringComparison.Ordinal))
+                return transScrollProgress ?? double.NaN;
+            if (string.Equals(text, pinyin, StringComparison.Ordinal))
+                return pinyinScrollProgress ?? double.NaN;
+            return double.NaN;
+        }
+
         // Kiểm tra xem máy tính có màn hình thứ 2 hay không
         bool hasSecondaryScreen = NativeMethods.GetSystemMetrics(SM_CMONITORS) > 1;
 
@@ -464,9 +498,13 @@ public sealed class DualOverlayCoordinator : IDisposable
         {
             // Người dùng chọn chế độ Tùy chỉnh dòng riêng cho vị trí còn lại
             (primaryLine1, primaryProgress1, bool isP1) = ResolveCustomContentType(
-                settings.SecondaryLine1, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+                settings.SecondaryLine1, originalText,
+                showTransOnPrimary ? translation : null, transProgress,
+                showPinyinOnPrimary ? pinyin : null, pinyinProgress, nextLineText);
             (primaryLine2, primaryProgress2, bool isP2) = ResolveCustomContentType(
-                settings.SecondaryLine2, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+                settings.SecondaryLine2, originalText,
+                showTransOnPrimary ? translation : null, transProgress,
+                showPinyinOnPrimary ? pinyin : null, pinyinProgress, nextLineText);
             isPrimaryPinyin = isP1 || isP2;
 
             if (string.IsNullOrWhiteSpace(primaryLine1) && !string.IsNullOrWhiteSpace(primaryLine2))
@@ -554,7 +592,9 @@ public sealed class DualOverlayCoordinator : IDisposable
                     primaryProgress1 = pinyinProgress;
                     isPrimaryPinyin = true;
                 }
-                else if (allowNextLineOnSecondary && !string.IsNullOrWhiteSpace(nextLineText))
+                else if (allowNextLineOnSecondary &&
+                         !settings.TargetLanguage.StartsWith("vi", StringComparison.OrdinalIgnoreCase) &&
+                         !string.IsNullOrWhiteSpace(nextLineText))
                 {
                     primaryLine1 = nextLineText;
                     primaryProgress1 = 1.0;
@@ -569,24 +609,17 @@ public sealed class DualOverlayCoordinator : IDisposable
                 primaryLine1, primaryLine2,
                 isPrimaryPinyin: isPrimaryPinyin,
                 primaryProgress: primaryProgress1,
-                secondaryProgress: primaryProgress2);
+                secondaryProgress: primaryProgress2,
+                primaryScrollProgress: ScrollProgressFor(primaryLine1),
+                secondaryScrollProgress: ScrollProgressFor(primaryLine2));
         }
-        else
-        {
-            _primaryWindow.HideContent();
-        }
+        // Keep the last translated line while the next line has no usable translation yet.
 
         // 2. Phân bổ cho Secondary Screen Window (nếu có màn hình 2)
-        if (hasSecondaryScreen)
+        bool showTransOnSec = transPlacement is LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens;
+        bool showPinyinOnSec = pinyinPlacement is LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens;
+        if (hasSecondaryScreen && (showTransOnSec || showPinyinOnSec))
         {
-            bool showTransOnSec = allowTransOnSecondary &&
-                                  (transPlacement == LyricElementPlacement.SecondaryScreen ||
-                                   transPlacement == LyricElementPlacement.BothScreens);
-
-            bool showPinyinOnSec = allowPinyinOnSecondary &&
-                                   (pinyinPlacement == LyricElementPlacement.SecondaryScreen ||
-                                    pinyinPlacement == LyricElementPlacement.BothScreens);
-
             string? secLine1 = null;
             string? secLine2 = null;
             bool isSecPinyin = false;
@@ -596,9 +629,13 @@ public sealed class DualOverlayCoordinator : IDisposable
             if (!settings.SecondaryUseAuto)
             {
                 (secLine1, secProgress1, bool isSecP1) = ResolveCustomContentType(
-                    settings.SecondaryLine1, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+                    settings.SecondaryLine1, originalText,
+                    showTransOnSec ? translation : null, transProgress,
+                    showPinyinOnSec ? pinyin : null, pinyinProgress, nextLineText);
                 (secLine2, secProgress2, bool isSecP2) = ResolveCustomContentType(
-                    settings.SecondaryLine2, originalText, translation, transProgress, pinyin, pinyinProgress, nextLineText);
+                    settings.SecondaryLine2, originalText,
+                    showTransOnSec ? translation : null, transProgress,
+                    showPinyinOnSec ? pinyin : null, pinyinProgress, nextLineText);
                 isSecPinyin = isSecP1 || isSecP2;
 
                 if (string.IsNullOrWhiteSpace(secLine1) && !string.IsNullOrWhiteSpace(secLine2))
@@ -683,7 +720,9 @@ public sealed class DualOverlayCoordinator : IDisposable
                         secProgress1 = pinyinProgress;
                         isSecPinyin = true;
                     }
-                    else if (allowNextLineOnSecondary && !string.IsNullOrWhiteSpace(nextLineText))
+                    else if (allowNextLineOnSecondary &&
+                             !settings.TargetLanguage.StartsWith("vi", StringComparison.OrdinalIgnoreCase) &&
+                             !string.IsNullOrWhiteSpace(nextLineText))
                     {
                         secLine1 = nextLineText;
                         secProgress1 = 1.0;
@@ -698,12 +737,11 @@ public sealed class DualOverlayCoordinator : IDisposable
                     secLine1, secLine2,
                     isPrimaryPinyin: isSecPinyin,
                     primaryProgress: secProgress1,
-                    secondaryProgress: secProgress2);
+                    secondaryProgress: secProgress2,
+                    primaryScrollProgress: ScrollProgressFor(secLine1),
+                    secondaryScrollProgress: ScrollProgressFor(secLine2));
             }
-            else
-            {
-                _secondaryWindow.HideContent();
-            }
+            // Keep the last translated line while the next line has no usable translation yet.
         }
         else
         {

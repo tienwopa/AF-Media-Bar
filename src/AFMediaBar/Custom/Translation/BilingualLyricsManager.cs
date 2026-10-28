@@ -107,6 +107,8 @@ public sealed class BilingualLyricsManager
         // Tái sử dụng ngay lập tức nếu bài hát này đã được làm giàu trong phiên hiện tại
         if (_documentCache.TryGetValue(trackKey, out var cached))
         {
+            if (string.Equals(_lastProcessedTrack, trackKey, StringComparison.Ordinal) &&
+                ReferenceEquals(ActiveEnrichedDocument, cached.doc)) return;
             _lastProcessedTrack = trackKey;
             ActiveTrackKey = trackKey;
             ActiveEnrichedDocument = cached.doc;

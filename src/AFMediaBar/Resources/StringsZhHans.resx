@@ -3249,4 +3249,9 @@
 目录：{1}
 最近采样：{2}
 已丢弃采样：{3}；事件：{4}</value></data>
+  <data name="Lyrics.Custom.MainLine1Size.Title" xml:space="preserve"><value>主栏第一行字号</value></data>
+  <data name="Lyrics.Custom.MainLine1Size.Description" xml:space="preserve"><value>MediaBar 第一行歌词的字号</value></data>
+  <data name="Lyrics.Custom.MainLine2Size.Title" xml:space="preserve"><value>主栏第二行字号</value></data>
+  <data name="Lyrics.Custom.MainLine2Size.Description" xml:space="preserve"><value>MediaBar 第二行歌词的字号</value></data>
+  <data name="Lyrics.Custom.FontSize.Auto" xml:space="preserve"><value>自动</value></data>
 </root>

@@ -435,6 +435,19 @@
                                              Click="CustomEnableDualTaskbarSwitch_Click" />
                         </components:SettingsRow>
 
+                        <!-- Động cơ hiển thị lời bài hát -->
+                        <components:SettingsRow
+                            Description="Chọn động cơ hiển thị lời bài hát trên Media Bar (WPF Native giúp tiết kiệm ~120MB RAM và 8% CPU)"
+                            Icon="{ui:SymbolIcon Flash24}"
+                            Title="Động cơ hiển thị lời bài hát">
+                            <ComboBox x:Name="CustomRenderingEngineCombo"
+                                      SelectionChanged="CustomRenderingEngineCombo_SelectionChanged"
+                                      Width="280">
+                                <ComboBoxItem Content="WebView2 (Mặc định - Chuẩn giao diện Web)" Tag="0" />
+                                <ComboBoxItem Content="WPF Native (Hiệu năng cao - Tiết kiệm CPU &amp; RAM)" Tag="1" />
+                            </ComboBox>
+                        </components:SettingsRow>
+
                         <!-- THẺ 1: NỘI DUNG CHÍNH TRÊN MEDIA BAR -->
                         <ui:CardExpander
                             Margin="0,8,0,0"
@@ -454,6 +467,41 @@
                                         <ComboBoxItem Content="Lời dịch Tiếng Việt" Tag="2" />
                                         <ComboBoxItem Content="Pinyin / Phiên âm" Tag="3" />
                                     </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="{DynamicResource Loc.Lyrics.Custom.MainLine1Size.Description}"
+                                    Icon="{ui:SymbolIcon TextFontSize24}"
+                                    IsNested="True"
+                                    Title="{DynamicResource Loc.Lyrics.Custom.MainLine1Size.Title}">
+                                    <ComboBox x:Name="CustomMediaBarLine1SizeCombo" SelectionChanged="CustomMediaBarLine1SizeCombo_SelectionChanged" Width="280">
+                                        <ComboBoxItem Content="{DynamicResource Loc.Lyrics.Custom.FontSize.Auto}" Tag="0" />
+                                        <ComboBoxItem Content="10" Tag="10" />
+                                        <ComboBoxItem Content="12" Tag="12" />
+                                        <ComboBoxItem Content="14" Tag="14" />
+                                        <ComboBoxItem Content="16" Tag="16" />
+                                        <ComboBoxItem Content="18" Tag="18" />
+                                        <ComboBoxItem Content="20" Tag="20" />
+                                        <ComboBoxItem Content="24" Tag="24" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="{DynamicResource Loc.Lyrics.Custom.MainLine2Size.Description}"
+                                    Icon="{ui:SymbolIcon TextFontSize24}"
+                                    IsNested="True"
+                                    Title="{DynamicResource Loc.Lyrics.Custom.MainLine2Size.Title}">
+                                    <ComboBox x:Name="CustomMediaBarLine2SizeCombo" SelectionChanged="CustomMediaBarLine2SizeCombo_SelectionChanged" Width="280">
+                                        <ComboBoxItem Content="{DynamicResource Loc.Lyrics.Custom.FontSize.Auto}" Tag="0" />
+                                        <ComboBoxItem Content="10" Tag="10" />
+                                        <ComboBoxItem Content="12" Tag="12" />
+                                        <ComboBoxItem Content="14" Tag="14" />
+                                        <ComboBoxItem Content="16" Tag="16" />
+                                        <ComboBoxItem Content="18" Tag="18" />
+                                        <ComboBoxItem Content="20" Tag="20" />
+                                        <ComboBoxItem Content="24" Tag="24" />
+                                    </ComboBox>
+
                                 </components:SettingsRow>
 
                                 <components:SettingsRow

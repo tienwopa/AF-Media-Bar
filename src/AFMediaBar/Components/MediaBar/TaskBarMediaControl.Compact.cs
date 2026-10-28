@@ -21,8 +21,13 @@ public partial class TaskBarMediaControl
     /// <summary>首次进入一次真实收起状态时发出，不代表应重复显示通知。</summary>
     public event EventHandler? InformationAutomaticallyHidden;
     private bool UsesAdaptiveTaskbarText => _currentMode == WindowMode.Taskbar;
-    private double EffectiveLyricFontSize => _isVertical ? VerticalPrimaryFontSize :
-        _naturalLyricSize * (UsesAdaptiveTaskbarText ? _textBudget.FontScale : 1);
+    private double EffectiveLyricFontSize => CustomSettingsManager.Instance.Current is { EnableBilingualLyrics: true, MediaBarLine1FontSize: > 0 } custom
+        ? Math.Clamp(custom.MediaBarLine1FontSize, 8, 32) * (UsesAdaptiveTaskbarText ? _textBudget.FontScale : 1)
+        : _isVertical ? VerticalPrimaryFontSize : _naturalLyricSize * (UsesAdaptiveTaskbarText ? _textBudget.FontScale : 1);
+
+    private double EffectiveSecondaryLyricFontSize => CustomSettingsManager.Instance.Current is { EnableBilingualLyrics: true, MediaBarLine2FontSize: > 0 } custom
+        ? Math.Clamp(custom.MediaBarLine2FontSize, 8, 32) * (UsesAdaptiveTaskbarText ? _textBudget.FontScale : 1)
+        : _isVertical ? VerticalSecondaryFontSize : _naturalLyricSize * 0.92 * (UsesAdaptiveTaskbarText ? _textBudget.FontScale : 1);
 
     private string VisibleMetadataTitle(TaskbarExperienceSettings experience) =>
         _isSmallTaskbar ? _actualTitle :
@@ -35,14 +40,16 @@ public partial class TaskBarMediaControl
     {
         if (!IsBarPresentation) return;
         var scale = PresentationSettings.TaskbarExperience.Normalize().MediaFontSizePercent / 100d;
+        var customSettings = CustomSettingsManager.Instance.Current;
         var primary = _isVertical ? VerticalTaskbarPresentationPolicy.PrimaryFontSizeDip * scale :
-            raw.IsVisible ? _naturalLyricSize : _naturalTitleSize;
+            raw.IsVisible ? (customSettings.EnableBilingualLyrics && customSettings.MediaBarLine1FontSize > 0
+                ? Math.Clamp(customSettings.MediaBarLine1FontSize, 8, 32) : _naturalLyricSize) : _naturalTitleSize;
         var secondary = _isVertical ? VerticalTaskbarPresentationPolicy.SecondaryFontSizeDip * scale :
-            raw.IsVisible ? _naturalLyricSize : _naturalArtistSize;
+            raw.IsVisible ? (customSettings.EnableBilingualLyrics && customSettings.MediaBarLine2FontSize > 0
+                ? Math.Clamp(customSettings.MediaBarLine2FontSize, 8, 32) : _naturalLyricSize) : _naturalArtistSize;
         var gap = raw.IsVisible ? 2 + primary * PresentationSettings.LyricsLineGapPercent / 100 : 2;
         var cross = _isVertical ? MainBorder.Width : MainBorder.Height;
 
-        var customSettings = CustomSettingsManager.Instance.Current;
         bool isCustomTwoLines = false;
         if (customSettings.MediaBarLine2 != LyricContentType.None)
         {

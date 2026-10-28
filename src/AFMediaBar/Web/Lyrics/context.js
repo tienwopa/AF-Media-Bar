@@ -31,6 +31,7 @@ const spectrumEl = document.querySelector(".spectrum");
 let displayedCurrent = currentLineTextEl?.textContent || "";
 let displayedNext = nextLineTextEl?.textContent || "";
 let requestedFontSize = 13;
+let requestedSecondaryFontSize = 12;
 let compactPresentation = false;
 let currentSize = 13;
 let viewportDescenderBufferPx = 2;

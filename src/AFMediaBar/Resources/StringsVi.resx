@@ -3287,4 +3287,9 @@ Lấy mẫu: 1 giây khi hoạt động, 4 giây khi nhàn rỗi; tạm dừng k
 Thư mục: {1}
 Mẫu gần nhất: {2}
 Mẫu bị loại: {3}; sự kiện: {4}</value></data>
+  <data name="Lyrics.Custom.MainLine1Size.Title" xml:space="preserve"><value>Cỡ chữ dòng 1</value></data>
+  <data name="Lyrics.Custom.MainLine1Size.Description" xml:space="preserve"><value>Cỡ chữ dòng lời đầu tiên trên MediaBar</value></data>
+  <data name="Lyrics.Custom.MainLine2Size.Title" xml:space="preserve"><value>Cỡ chữ dòng 2</value></data>
+  <data name="Lyrics.Custom.MainLine2Size.Description" xml:space="preserve"><value>Cỡ chữ dòng lời thứ hai trên MediaBar</value></data>
+  <data name="Lyrics.Custom.FontSize.Auto" xml:space="preserve"><value>Tự động</value></data>
 </root>

@@ -281,17 +281,8 @@
             0);
         }
 
-        // The text of the line already on screen changed: hiding reading annotations, or the Chinese
-        // conversion becoming ready in the background, both do this. Treat it as a line change so the old
-        // sentence rolls out and the new one rolls in; swapping it in place is what reads as a hard refresh.
-        const isTranslationPair = target.layout === LAYOUTS.TRANSLATION_PAIR;
-        return makePlan(
-          isTranslationPair ? TRANSITIONS.TRANSLATION_PAIR_ROLL : TRANSITIONS.SINGLE_ROLL,
-          current,
-          target,
-          isTranslationPair
-            ? DEFAULT_DURATION_MS.translationPairRoll
-            : DEFAULT_DURATION_MS.singleRoll);
+        // Late translation and display changes must not replay the same timed lyric line.
+        return makePlan(TRANSITIONS.REPLACE_IN_PLACE, current, target, 0);
       }
 
       if (target.scene === SCENES.LYRICS && current.scene === SCENES.LYRICS) {

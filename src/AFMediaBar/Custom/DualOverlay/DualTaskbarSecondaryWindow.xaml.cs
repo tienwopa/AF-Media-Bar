@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using AFMediaBar.Classes.Interop;
+using AFMediaBar.Classes.Services;
 using AFMediaBar.Classes.Utils;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Utils;
@@ -13,41 +14,54 @@ using AFMediaBar.Custom.Utils;
 namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
-/// Cửa sổ hiển thị lời dịch / pinyin nổi trên Màn hình thứ 2 (Secondary Monitor).
+/// Cửa sổ hiển thị lời dịch / pinyin trên taskbar của Màn hình thứ 2.
 /// Hỗ trợ căn lề (Trái/Giữa/Phải), animation chuyển câu mượt mà, và tự điều chỉnh cân bằng 1 dòng.
 /// </summary>
 public partial class DualTaskbarSecondaryWindow : Window
 {
+    private readonly ITaskbarDockService _dockService;
     private readonly CustomSettingsManager _settingsManager;
+    private bool _isDocked;
+    private IntPtr _lastTaskbarHwnd;
 
     private string _currentPrimaryText = string.Empty;
     private string? _currentSecondaryText;
     private bool _currentIsPrimaryPinyin;
     private double _currentPrimaryProgress = 1.0;
     private double _currentSecondaryProgress = 1.0;
+    private double _currentPrimaryScrollProgress = double.NaN;
+    private double _currentSecondaryScrollProgress = double.NaN;
     private double _lastAppliedPrimaryProgress = -1;
     private double _lastAppliedSecondaryProgress = -1;
     private Color _lastPrimaryColor;
     private Color _lastSecondaryColor;
 
-    public DualTaskbarSecondaryWindow(CustomSettingsManager settingsManager)
+    public DualTaskbarSecondaryWindow(ITaskbarDockService dockService, CustomSettingsManager settingsManager)
     {
         InitializeComponent();
+        _dockService = dockService;
         _settingsManager = settingsManager;
 
         Loaded += (_, _) =>
         {
             ApplyAppearance();
-            PositionOnSecondaryScreen();
+            EnsureDockedAndPositioned();
         };
 
-        _settingsManager.SettingsChanged += _ =>
+        _settingsManager.SettingsChanged += settings =>
         {
             if (Dispatcher.HasShutdownStarted) return;
             Dispatcher.Invoke(() =>
             {
+                if (!settings.EnableDualTaskbarLyrics || !settings.EnableBilingualLyrics ||
+                    (settings.TranslationPlacement is not (LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens) &&
+                     settings.RomanizationPlacement is not (LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens)))
+                {
+                    HideContent();
+                    return;
+                }
                 ApplyAppearance();
-                PositionOnSecondaryScreen();
+                EnsureDockedAndPositioned();
             });
         };
 
@@ -70,13 +84,38 @@ public partial class DualTaskbarSecondaryWindow : Window
         }
     }
 
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        DetachFromTaskbar();
+        base.OnClosing(e);
+    }
+
+    public void DetachFromTaskbar()
+    {
+        if (!_isDocked) return;
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero) _dockService.UndockWindow(hwnd);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DualTaskbarSecondaryWindow] Loi detach taskbar: {ex.Message}");
+        }
+        finally
+        {
+            _isDocked = false;
+            _lastTaskbarHwnd = IntPtr.Zero;
+        }
+    }
+
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         const int WM_DISPLAYCHANGE = 0x007E;
         const int WM_SETTINGCHANGE = 0x001A;
         if (msg == WM_DISPLAYCHANGE || msg == WM_SETTINGCHANGE)
         {
-            PositionOnSecondaryScreen();
+            EnsureDockedAndPositioned();
         }
         return IntPtr.Zero;
     }
@@ -95,7 +134,9 @@ public partial class DualTaskbarSecondaryWindow : Window
                 _currentSecondaryText,
                 _currentIsPrimaryPinyin,
                 _currentPrimaryProgress,
-                _currentSecondaryProgress);
+                _currentSecondaryProgress,
+                _currentPrimaryScrollProgress,
+                _currentSecondaryScrollProgress);
         }
         catch { }
     }
@@ -217,7 +258,9 @@ public partial class DualTaskbarSecondaryWindow : Window
         string? secondaryText = null,
         bool isPrimaryPinyin = false,
         double primaryProgress = 1.0,
-        double secondaryProgress = 1.0)
+        double secondaryProgress = 1.0,
+        double primaryScrollProgress = double.NaN,
+        double secondaryScrollProgress = double.NaN)
     {
         if (Dispatcher.HasShutdownStarted) return;
 
@@ -238,6 +281,8 @@ public partial class DualTaskbarSecondaryWindow : Window
             _currentIsPrimaryPinyin = isPrimaryPinyin;
             _currentPrimaryProgress = primaryProgress;
             _currentSecondaryProgress = secondaryProgress;
+            _currentPrimaryScrollProgress = primaryScrollProgress;
+            _currentSecondaryScrollProgress = secondaryScrollProgress;
 
             var settings = _settingsManager.Current;
             ResolveColors(isPrimaryPinyin, out var pCol, out var sCol, out bool isLight);
@@ -260,7 +305,7 @@ public partial class DualTaskbarSecondaryWindow : Window
                     PrimaryLineText.FontSize = pSize;
                     SecondaryLineText.FontSize = sSize;
                     SecondaryLineText.Text = secondaryText!;
-                    SecondaryLineText.Visibility = Visibility.Visible;
+                    SecondaryLineViewport.Visibility = Visibility.Visible;
                     ContentStack.VerticalAlignment = VerticalAlignment.Center;
                 }
                 else
@@ -275,7 +320,7 @@ public partial class DualTaskbarSecondaryWindow : Window
                         PrimaryLineText.FontSize = pSize;
                     }
 
-                    SecondaryLineText.Visibility = Visibility.Collapsed;
+                    SecondaryLineViewport.Visibility = Visibility.Collapsed;
                     ContentStack.VerticalAlignment = VerticalAlignment.Center;
                 }
 
@@ -328,12 +373,14 @@ public partial class DualTaskbarSecondaryWindow : Window
 
                 PrimaryLineText.Text = primaryText;
                 BackgroundEffectCanvas.IsActive = true;
-                Visibility = Visibility.Visible;
-
-                if (isFirstVisible)
+                if (isFirstVisible && !EnsureDockedAndPositioned())
                 {
-                    PositionOnSecondaryScreen();
+                    BackgroundEffectCanvas.IsActive = false;
+                    Visibility = Visibility.Collapsed;
+                    return;
                 }
+                Visibility = Visibility.Visible;
+                if (isFirstVisible) EnsureDockedAndPositioned();
 
                 if (textChanged)
                 {
@@ -387,6 +434,22 @@ public partial class DualTaskbarSecondaryWindow : Window
                     _lastAppliedSecondaryProgress = -1;
                 }
             }
+            var rowAlignment = settings.SecondaryAlignment switch
+            {
+                SecondaryTaskbarAlignment.Left => HorizontalAlignment.Left,
+                SecondaryTaskbarAlignment.Right => HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Center
+            };
+            KaraokeLineScrollHelper.Update(PrimaryLineViewport, PrimaryLineText,
+                primaryScrollProgress, rowAlignment, textChanged || isFirstVisible);
+            if (SecondaryLineViewport.Visibility == Visibility.Visible)
+            {
+                KaraokeLineScrollHelper.Update(SecondaryLineViewport, SecondaryLineText,
+                    secondaryScrollProgress, rowAlignment, textChanged || isFirstVisible);
+                if (double.IsFinite(primaryScrollProgress) && PrimaryLineViewport.ScrollableWidth > 1 &&
+                    double.IsFinite(secondaryScrollProgress) && SecondaryLineViewport.ScrollableWidth > 1)
+                    SecondaryLineViewport.ScrollToHorizontalOffset(0);
+            }
         });
     }
 
@@ -398,43 +461,63 @@ public partial class DualTaskbarSecondaryWindow : Window
             BackgroundEffectCanvas.IsActive = false;
             _currentPrimaryText = string.Empty;
             _currentSecondaryText = null;
+            PrimaryLineViewport.ScrollToHorizontalOffset(0);
+            SecondaryLineViewport.ScrollToHorizontalOffset(0);
             Visibility = Visibility.Collapsed;
         });
     }
 
-    public void PositionOnSecondaryScreen()
+    public bool EnsureDockedAndPositioned()
     {
         try
         {
             var monitors = MonitorUtil.GetMonitors();
             var secondary = monitors.FirstOrDefault(m => !m.isPrimary);
-            if (secondary.monitorArea.Width > 0)
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (secondary.monitorArea.Width <= 0 || hwnd == IntPtr.Zero) return false;
+
+            var taskbarHwnd = _dockService.GetSelectedTaskbarHandle(secondary.deviceId, out _);
+            if (taskbarHwnd == IntPtr.Zero ||
+                !string.Equals(MonitorUtil.GetMonitor(taskbarHwnd).deviceId, secondary.deviceId,
+                    StringComparison.OrdinalIgnoreCase) ||
+                !NativeMethods.GetWindowRect(taskbarHwnd, out var taskbarRect))
             {
-                var wa = secondary.workArea;
-
-                Width = Math.Min(800, wa.Width * 0.7);
-                Height = 56;
-
-                var settings = _settingsManager.Current;
-                if (settings.SecondaryAlignment == SecondaryTaskbarAlignment.Left)
-                {
-                    Left = wa.X + 40;
-                }
-                else if (settings.SecondaryAlignment == SecondaryTaskbarAlignment.Right)
-                {
-                    Left = wa.X + wa.Width - Width - 40;
-                }
-                else
-                {
-                    Left = wa.X + (wa.Width - Width) / 2;
-                }
-
-                Top = wa.Y + wa.Height - Height - 12;
+                Visibility = Visibility.Collapsed;
+                DetachFromTaskbar();
+                return false;
             }
+
+            var taskbarWidth = taskbarRect.Right - taskbarRect.Left;
+            var taskbarHeight = taskbarRect.Bottom - taskbarRect.Top;
+            if (taskbarWidth <= 0 || taskbarHeight <= 0) return false;
+
+            if (!_isDocked || _lastTaskbarHwnd != taskbarHwnd)
+            {
+                _dockService.DockWindow(hwnd, taskbarHwnd);
+                _isDocked = true;
+                _lastTaskbarHwnd = taskbarHwnd;
+            }
+
+            var targetWidth = Math.Min(800, Math.Max(1, (int)(taskbarWidth * 0.7)));
+            var dpiScale = _dockService.GetTaskbarDpiScale(taskbarHwnd);
+            var viewportWidth = Math.Min(720, targetWidth / Math.Max(1, dpiScale) - 8);
+            PrimaryLineViewport.Width = Math.Max(1, viewportWidth);
+            SecondaryLineViewport.Width = Math.Max(1, viewportWidth);
+            var targetX = _settingsManager.Current.SecondaryAlignment switch
+            {
+                SecondaryTaskbarAlignment.Left => 40,
+                SecondaryTaskbarAlignment.Right => Math.Max(0, taskbarWidth - targetWidth - 40),
+                _ => Math.Max(0, (taskbarWidth - targetWidth) / 2)
+            };
+            NativeMethods.SetWindowPos(hwnd, 0, targetX, 0, targetWidth, taskbarHeight,
+                0x0004 | 0x0010); // SWP_NOZORDER | SWP_NOACTIVATE
+            return true;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DualTaskbarSecondaryWindow] Loi dinh vi: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DualTaskbarSecondaryWindow] Loi dock taskbar: {ex.Message}");
+            Visibility = Visibility.Collapsed;
+            return false;
         }
     }
 }

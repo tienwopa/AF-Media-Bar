@@ -18,7 +18,7 @@
         SnapsToDevicePixels="True"
         Visibility="Collapsed">
 
-    <Grid x:Name="RootLayout" Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="0,0,10,0">
+    <Grid x:Name="RootLayout" Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Stretch">
         <!-- Canvas hiệu ứng nền hạt nhẹ nhàng phía sau lời bài hát -->
         <effects:LyricsBackgroundEffectCanvas x:Name="BackgroundEffectCanvas"
                                               TargetScope="DualTaskbarOnly"
@@ -35,7 +35,10 @@
             </StackPanel.RenderTransform>
 
             <!-- Dòng 1: Lời dịch hoặc Pinyin tùy theo thiết lập thứ tự -->
-            <TextBlock x:Name="PrimaryLineText"
+            <ScrollViewer x:Name="PrimaryLineViewport" Width="480" ClipToBounds="True"
+                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                          Focusable="False">
+              <TextBlock x:Name="PrimaryLineText"
                        Text=""
                        FontSize="11.5"
                        Foreground="#F2FFFFFF"
@@ -48,9 +51,13 @@
                     <DropShadowEffect x:Name="PrimaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
                 </TextBlock.Effect>
             </TextBlock>
+            </ScrollViewer>
 
             <!-- Dòng 2: Pinyin hoặc Lời dịch tùy theo thiết lập thứ tự -->
-            <TextBlock x:Name="SecondaryLineText"
+            <ScrollViewer x:Name="SecondaryLineViewport" Width="480" ClipToBounds="True"
+                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                          Focusable="False" Margin="0,1,0,0" Visibility="Collapsed">
+              <TextBlock x:Name="SecondaryLineText"
                        Text=""
                        FontSize="11"
                        Foreground="#FFD54F"
@@ -59,12 +66,12 @@
                        HorizontalAlignment="Right"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="480"
-                       Margin="0,1,0,0"
-                       Visibility="Collapsed">
+                       Margin="0,0,0,0">
                 <TextBlock.Effect>
                     <DropShadowEffect x:Name="SecondaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
                 </TextBlock.Effect>
             </TextBlock>
+            </ScrollViewer>
         </StackPanel>
     </Grid>
 </Window>

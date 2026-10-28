@@ -73,6 +73,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
             var settings = CustomSettings.Current;
             CustomEnableBilingualSwitch.IsChecked = settings.EnableBilingualLyrics;
             CustomEnableDualTaskbarSwitch.IsChecked = settings.EnableDualTaskbarLyrics;
+            SelectEnumTagInCombo(CustomRenderingEngineCombo, (int)settings.RenderingEngine);
             CustomEnableKaraokeSwitch.IsChecked = settings.EnableKaraokeHighlight;
             CustomOnlyKaraokeWhenAvailableSwitch.IsChecked = settings.OnlyKaraokeWhenAvailable;
             CustomAutoAdaptColorSwitch.IsChecked = settings.AutoAdaptTaskbarColor;
@@ -81,7 +82,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
             CustomTransPlacementCombo.SelectedIndex = (int)settings.TranslationPlacement;
             CustomPinyinPlacementCombo.SelectedIndex = (int)settings.RomanizationPlacement;
-            CustomSecondaryAlignCombo.SelectedIndex = (int)settings.SecondaryAlignment;
+            SelectEnumTagInCombo(CustomSecondaryAlignCombo, (int)settings.SecondaryAlignment);
             CustomPrimaryAlignCombo.SelectedIndex = (int)settings.PrimaryAlignment;
             CustomAnimationModeCombo.SelectedIndex = (int)settings.AnimationMode;
 
@@ -101,6 +102,8 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
             SelectEnumTagInCombo(CustomMediaBarLine1Combo, (int)settings.MediaBarLine1);
             SelectEnumTagInCombo(CustomMediaBarLine2Combo, (int)settings.MediaBarLine2);
+            SelectFontSizeInCombo(CustomMediaBarLine1SizeCombo, settings.MediaBarLine1FontSize);
+            SelectFontSizeInCombo(CustomMediaBarLine2SizeCombo, settings.MediaBarLine2FontSize);
             CustomSecondaryModeCombo.SelectedIndex = settings.SecondaryUseAuto ? 0 : 1;
             CustomSecondaryCustomLinesPanel.Visibility = settings.SecondaryUseAuto ? Visibility.Collapsed : Visibility.Visible;
             SelectEnumTagInCombo(CustomSecondaryLine1Combo, (int)settings.SecondaryLine1);
@@ -185,11 +188,12 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
 
     private static void SelectFontSizeInCombo(System.Windows.Controls.ComboBox combo, double size)
     {
-        string sizeStr = size.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
         for (int i = 0; i < combo.Items.Count; i++)
         {
             if (combo.Items[i] is System.Windows.Controls.ComboBoxItem item &&
-                string.Equals(item.Tag?.ToString(), sizeStr, StringComparison.OrdinalIgnoreCase))
+                double.TryParse(item.Tag?.ToString(), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var itemSize) &&
+                Math.Abs(itemSize - size) < 0.01)
             {
                 combo.SelectedIndex = i;
                 return;
@@ -243,6 +247,17 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         CustomSettings.SaveSettings();
     }
 
+    private void CustomRenderingEngineCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomRenderingEngineCombo.SelectedItem is ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.RenderingEngine = (LyricsRenderingEngine)val;
+            CustomSettings.SaveSettings();
+        }
+    }
+
     private void CustomEnableKaraokeSwitch_Click(object sender, RoutedEventArgs e)
     {
         if (_isInitializing) return;
@@ -277,6 +292,30 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         if (CustomLineOrderCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.LineOrder = (BilingualLineOrder)CustomLineOrderCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomMediaBarLine1SizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomMediaBarLine1SizeCombo.SelectedItem is ComboBoxItem item &&
+            double.TryParse(item.Tag?.ToString(), System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var size))
+        {
+            CustomSettings.Current.MediaBarLine1FontSize = size;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomMediaBarLine2SizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomMediaBarLine2SizeCombo.SelectedItem is ComboBoxItem item &&
+            double.TryParse(item.Tag?.ToString(), System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var size))
+        {
+            CustomSettings.Current.MediaBarLine2FontSize = size;
             CustomSettings.SaveSettings();
         }
     }
@@ -418,9 +457,10 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
     private void CustomSecondaryAlignCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isInitializing) return;
-        if (CustomSecondaryAlignCombo.SelectedIndex >= 0)
+        if (CustomSecondaryAlignCombo.SelectedItem is ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out var value))
         {
-            CustomSettings.Current.SecondaryAlignment = (SecondaryTaskbarAlignment)CustomSecondaryAlignCombo.SelectedIndex;
+            CustomSettings.Current.SecondaryAlignment = (SecondaryTaskbarAlignment)value;
             CustomSettings.SaveSettings();
         }
     }

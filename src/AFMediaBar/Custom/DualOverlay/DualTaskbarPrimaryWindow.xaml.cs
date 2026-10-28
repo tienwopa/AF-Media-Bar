@@ -29,6 +29,8 @@ public partial class DualTaskbarPrimaryWindow : Window
     private bool _currentIsPrimaryPinyin;
     private double _currentPrimaryProgress = 1.0;
     private double _currentSecondaryProgress = 1.0;
+    private double _currentPrimaryScrollProgress = double.NaN;
+    private double _currentSecondaryScrollProgress = double.NaN;
     private double _lastAppliedPrimaryProgress = -1;
     private double _lastAppliedSecondaryProgress = -1;
     private Color _lastPrimaryColor;
@@ -126,7 +128,9 @@ public partial class DualTaskbarPrimaryWindow : Window
                 _currentSecondaryText,
                 _currentIsPrimaryPinyin,
                 _currentPrimaryProgress,
-                _currentSecondaryProgress);
+                _currentSecondaryProgress,
+                _currentPrimaryScrollProgress,
+                _currentSecondaryScrollProgress);
         }
         catch { }
     }
@@ -253,7 +257,9 @@ public partial class DualTaskbarPrimaryWindow : Window
         string? secondaryText = null,
         bool isPrimaryPinyin = false,
         double primaryProgress = 1.0,
-        double secondaryProgress = 1.0)
+        double secondaryProgress = 1.0,
+        double primaryScrollProgress = double.NaN,
+        double secondaryScrollProgress = double.NaN)
     {
         if (Dispatcher.HasShutdownStarted) return;
 
@@ -274,11 +280,17 @@ public partial class DualTaskbarPrimaryWindow : Window
             _currentIsPrimaryPinyin = isPrimaryPinyin;
             _currentPrimaryProgress = primaryProgress;
             _currentSecondaryProgress = secondaryProgress;
+            _currentPrimaryScrollProgress = primaryScrollProgress;
+            _currentSecondaryScrollProgress = secondaryScrollProgress;
 
             var settings = _settingsManager.Current;
             ResolveColors(isPrimaryPinyin, out var pCol, out var sCol, out bool isLight);
+            double maxW = settings.PrimaryMaxWidth > 100 ? settings.PrimaryMaxWidth : 480;
+            bool widthChanged = PrimaryLineViewport.Width != maxW;
+            PrimaryLineViewport.Width = maxW;
+            SecondaryLineViewport.Width = maxW;
 
-            if (textChanged || isFirstVisible)
+            if (textChanged || isFirstVisible || widthChanged)
             {
                 // 1. Phân bổ cỡ chữ độc lập
                 double pSize = isPrimaryPinyin
@@ -302,7 +314,7 @@ public partial class DualTaskbarPrimaryWindow : Window
                     SecondaryLineText.LineHeight = sSize * 1.15;
 
                     SecondaryLineText.Text = secondaryText!;
-                    SecondaryLineText.Visibility = Visibility.Visible;
+                    SecondaryLineViewport.Visibility = Visibility.Visible;
                     LinesStack.VerticalAlignment = VerticalAlignment.Center;
                 }
                 else
@@ -318,14 +330,11 @@ public partial class DualTaskbarPrimaryWindow : Window
                     }
 
                     PrimaryLineText.LineHeight = double.NaN;
-                    SecondaryLineText.Visibility = Visibility.Collapsed;
+                    SecondaryLineViewport.Visibility = Visibility.Collapsed;
                     LinesStack.VerticalAlignment = VerticalAlignment.Center;
                 }
 
                 // 2. Giới hạn độ rộng tối đa (Max Width)
-                double maxW = settings.PrimaryMaxWidth > 100 ? settings.PrimaryMaxWidth : 480;
-                PrimaryLineText.MaxWidth = maxW;
-                SecondaryLineText.MaxWidth = maxW;
 
                 // 3. Phân bổ Căn lề Taskbar chính
                 var textAlignment = settings.PrimaryAlignment switch
@@ -432,6 +441,22 @@ public partial class DualTaskbarPrimaryWindow : Window
                     _lastAppliedSecondaryProgress = -1;
                 }
             }
+            var rowAlignment = settings.PrimaryAlignment switch
+            {
+                PrimaryTaskbarAlignment.Left => HorizontalAlignment.Left,
+                PrimaryTaskbarAlignment.Center => HorizontalAlignment.Center,
+                _ => HorizontalAlignment.Right
+            };
+            KaraokeLineScrollHelper.Update(PrimaryLineViewport, PrimaryLineText,
+                primaryScrollProgress, rowAlignment, textChanged || isFirstVisible || widthChanged);
+            if (SecondaryLineViewport.Visibility == Visibility.Visible)
+            {
+                KaraokeLineScrollHelper.Update(SecondaryLineViewport, SecondaryLineText,
+                    secondaryScrollProgress, rowAlignment, textChanged || isFirstVisible || widthChanged);
+                if (double.IsFinite(primaryScrollProgress) && PrimaryLineViewport.ScrollableWidth > 1 &&
+                    double.IsFinite(secondaryScrollProgress) && SecondaryLineViewport.ScrollableWidth > 1)
+                    SecondaryLineViewport.ScrollToHorizontalOffset(0);
+            }
         });
     }
 
@@ -443,6 +468,8 @@ public partial class DualTaskbarPrimaryWindow : Window
             BackgroundEffectCanvas.IsActive = false;
             _currentPrimaryText = string.Empty;
             _currentSecondaryText = null;
+            PrimaryLineViewport.ScrollToHorizontalOffset(0);
+            SecondaryLineViewport.ScrollToHorizontalOffset(0);
             Visibility = Visibility.Collapsed;
         });
     }
@@ -472,15 +499,16 @@ public partial class DualTaskbarPrimaryWindow : Window
                 int taskbarWidth = tbRect.Right - tbRect.Left;
                 int taskbarHeight = tbRect.Bottom - tbRect.Top;
 
-                int trayWidth = 240;
+                int trayLeft = taskbarWidth - 160;
                 var trayHwnd = NativeMethods.FindWindowEx(taskbarHwnd, IntPtr.Zero, "TrayNotifyWnd", null);
                 if (trayHwnd != IntPtr.Zero && NativeMethods.GetWindowRect(trayHwnd, out var trayRect))
                 {
-                    trayWidth = Math.Max(160, trayRect.Right - trayRect.Left);
+                    trayLeft = Math.Clamp(trayRect.Left - tbRect.Left, 0, taskbarWidth);
                 }
 
                 var settings = _settingsManager.Current;
-                int targetWidth = (int)Math.Max(260, Math.Min(settings.PrimaryMaxWidth + 20, taskbarWidth - trayWidth - 60));
+                int rightEdge = Math.Max(1, trayLeft - 4);
+                int targetWidth = Math.Max(1, Math.Min((int)settings.PrimaryMaxWidth + 20, rightEdge - 20));
                 int targetHeight = Math.Max(38, taskbarHeight);
 
                 int targetX;
@@ -490,10 +518,10 @@ public partial class DualTaskbarPrimaryWindow : Window
                         targetX = 60;
                         break;
                     case PrimaryTaskbarAlignment.Center:
-                        targetX = Math.Max(20, (taskbarWidth - trayWidth - targetWidth) / 2);
+                        targetX = Math.Max(0, (rightEdge - targetWidth) / 2);
                         break;
                     default: // Right
-                        targetX = Math.Max(10, taskbarWidth - trayWidth - targetWidth - 16);
+                        targetX = rightEdge - targetWidth;
                         break;
                 }
 

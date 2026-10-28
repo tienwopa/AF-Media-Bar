@@ -318,6 +318,59 @@
                                         MinWidth="1"
                                         MinHeight="1"
                                         IsHitTestVisible="False" />
+                                <Grid x:Name="LyricsWpfHost"
+                                      Visibility="Collapsed"
+                                      ClipToBounds="True"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Stretch"
+                                      IsHitTestVisible="False">
+                                    <StackPanel x:Name="LyricsWpfStackPanel"
+                                                Orientation="Vertical"
+                                                VerticalAlignment="Center">
+                                        <ScrollViewer x:Name="LyricsWpfLine1Viewport"
+                                                      HorizontalScrollBarVisibility="Hidden"
+                                                      VerticalScrollBarVisibility="Disabled"
+                                                      Focusable="False">
+                                            <TextBlock x:Name="LyricsWpfLine1Text"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="White"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="NoWrap"
+                                                       VerticalAlignment="Center">
+                                                <TextBlock.Effect>
+                                                    <DropShadowEffect x:Name="LyricsWpfLine1Shadow"
+                                                                      BlurRadius="3"
+                                                                      ShadowDepth="1"
+                                                                      Opacity="0.8"
+                                                                      Color="#000000" />
+                                                </TextBlock.Effect>
+                                            </TextBlock>
+                                        </ScrollViewer>
+                                        <ScrollViewer x:Name="LyricsWpfLine2Viewport"
+                                                      HorizontalScrollBarVisibility="Hidden"
+                                                      VerticalScrollBarVisibility="Disabled"
+                                                      Focusable="False"
+                                                      Visibility="Collapsed"
+                                                      Margin="0,1,0,0">
+                                            <TextBlock x:Name="LyricsWpfLine2Text"
+                                                       FontSize="10"
+                                                       FontWeight="Normal"
+                                                       Foreground="#E0E0E0"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       TextWrapping="NoWrap"
+                                                       VerticalAlignment="Center">
+                                                <TextBlock.Effect>
+                                                    <DropShadowEffect x:Name="LyricsWpfLine2Shadow"
+                                                                      BlurRadius="3"
+                                                                      ShadowDepth="1"
+                                                                      Opacity="0.8"
+                                                                      Color="#000000" />
+                                                </TextBlock.Effect>
+                                            </TextBlock>
+                                        </ScrollViewer>
+                                    </StackPanel>
+                                </Grid>
                                 <!--
                                     歌词区的点击捕获层同样可点（打开播放器菜单）也可拖：这是媒体栏上最大的一块，
                                     挂 MediaAction 会让整个歌词框拖不动，因此只保留单击处理。

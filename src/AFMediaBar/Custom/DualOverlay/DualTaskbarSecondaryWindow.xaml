@@ -36,7 +36,10 @@
             </StackPanel.RenderTransform>
 
             <!-- Dòng 1 trên Màn hình 2 -->
-            <TextBlock x:Name="PrimaryLineText"
+            <ScrollViewer x:Name="PrimaryLineViewport" Width="720" ClipToBounds="True"
+                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                          Focusable="False">
+              <TextBlock x:Name="PrimaryLineText"
                        Text=""
                        FontSize="12"
                        Foreground="#F2FFFFFF"
@@ -49,9 +52,13 @@
                     <DropShadowEffect x:Name="PrimaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
                 </TextBlock.Effect>
             </TextBlock>
+            </ScrollViewer>
 
             <!-- Dòng 2 trên Màn hình 2 -->
-            <TextBlock x:Name="SecondaryLineText"
+            <ScrollViewer x:Name="SecondaryLineViewport" Width="720" ClipToBounds="True"
+                          HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled"
+                          Focusable="False" Margin="0,1,0,0" Visibility="Collapsed">
+              <TextBlock x:Name="SecondaryLineText"
                        Text=""
                        FontSize="11"
                        Foreground="#FFD54F"
@@ -60,12 +67,12 @@
                        HorizontalAlignment="Center"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="720"
-                       Margin="0,1,0,0"
-                       Visibility="Collapsed">
+                       Margin="0,0,0,0">
                 <TextBlock.Effect>
                     <DropShadowEffect x:Name="SecondaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
                 </TextBlock.Effect>
             </TextBlock>
+            </ScrollViewer>
         </StackPanel>
     </Grid>
 </Window>

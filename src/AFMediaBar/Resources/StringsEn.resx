@@ -3249,4 +3249,9 @@ Sampling: 1 s active, 4 s idle; paused when display is off, locked or suspended.
 Folder: {1}
 Latest sample: {2}
 Dropped samples: {3}; events: {4}</value></data>
+  <data name="Lyrics.Custom.MainLine1Size.Title" xml:space="preserve"><value>Main line 1 font size</value></data>
+  <data name="Lyrics.Custom.MainLine1Size.Description" xml:space="preserve"><value>Font size for the first MediaBar lyric line</value></data>
+  <data name="Lyrics.Custom.MainLine2Size.Title" xml:space="preserve"><value>Main line 2 font size</value></data>
+  <data name="Lyrics.Custom.MainLine2Size.Description" xml:space="preserve"><value>Font size for the second MediaBar lyric line</value></data>
+  <data name="Lyrics.Custom.FontSize.Auto" xml:space="preserve"><value>Automatic</value></data>
 </root>

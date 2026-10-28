@@ -308,8 +308,23 @@ public enum MediaBarLyricsDisplayMode
     Romanization = 5
 }
 
+/// <summary>
+/// Động cơ kết xuất lời bài hát trên Taskbar chính.
+/// </summary>
+public enum LyricsRenderingEngine
+{
+    /// <summary>Động cơ WebView2 (Chromium) - Đầy đủ tính năng, hỗ trợ Furigana/Ruby.</summary>
+    WebView2 = 0,
+
+    /// <summary>Động cơ WPF Native - Hiệu năng cao, tiết kiệm triệt để CPU và RAM (không chạy WebView2).</summary>
+    WpfNative = 1
+}
+
 public sealed class CustomSettings
 {
+    /// <summary>Động cơ kết xuất lời bài hát trên Media Bar (Mặc định: WebView2).</summary>
+    public LyricsRenderingEngine RenderingEngine { get; set; } = LyricsRenderingEngine.WebView2;
+
     /// <summary>Bật/tắt tính năng dịch và hiển thị song ngữ.</summary>
     public bool EnableBilingualLyrics { get; set; } = true;
 
@@ -400,6 +415,10 @@ public sealed class CustomSettings
 
     /// <summary>Dòng dưới của Media Bar (Mặc định: None - Chế độ 1 dòng).</summary>
     public LyricContentType MediaBarLine2 { get; set; } = LyricContentType.None;
+
+    /// <summary>Media Bar line font sizes in DIP; zero keeps the existing layout size.</summary>
+    public double MediaBarLine1FontSize { get; set; }
+    public double MediaBarLine2FontSize { get; set; }
 
     /// <summary>Sử dụng chế độ tự động khử trùng lặp cho Taskbar phụ (Mặc định: true).</summary>
     public bool SecondaryUseAuto { get; set; } = true;

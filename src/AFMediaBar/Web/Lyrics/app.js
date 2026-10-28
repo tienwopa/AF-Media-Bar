@@ -200,7 +200,7 @@ function updateMetrics() {
   const currentSizeMax = compactPresentation ? rowHeightPx * 0.92 :
     Math.max(11.2 * layoutScaleFactor, rowHeightPx * 0.92);
   currentSize = Math.min(requestedFontSize, currentSizeMax);
-  const nextSize = Math.max(9 * layoutScaleFactor, currentSize * 0.92);
+  const nextSize = Math.min(requestedSecondaryFontSize, currentSizeMax);
   root.style.setProperty("--row-height", `${rowHeightPx}px`);
   root.style.setProperty("--row-gap", `${rowGapPx}px`);
   root.style.setProperty("--line-pitch", `${linePitchPx}px`);
@@ -427,6 +427,7 @@ const lyricsApi = {
     root.style.setProperty("--lyrics-pane-padding-top", payload.compact ? "0px" : "3px");
     root.style.setProperty("--line-text-padding-bottom", payload.compact ? "0px" : "2px");
     requestedFontSize = Number(payload.fontSize) || 13;
+    requestedSecondaryFontSize = Number(payload.secondaryFontSize) || requestedFontSize * 0.92;
     root.style.setProperty("--font-size", `${requestedFontSize}px`);
     root.style.setProperty("--font-weight", window.taskbarLyricsState.normalizeWeight(payload.fontWeight));
     // 字距用 em 下发：每一行按自己的字号解析，因此当前行、第二行与翻译行会等比缩放。

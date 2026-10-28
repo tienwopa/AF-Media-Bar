@@ -1,6 +1,7 @@
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Translation;
+using AFMediaBar.Custom.Utils;
 // BarLyricsPresenter 独占单个控件的呈现资源；由控件加载、挂起与卸载路径驱动，不接管业务服务。
 using System.Windows;
 using System.Windows.Media;
@@ -124,7 +125,11 @@ public partial class TaskBarMediaControl
             _owner.Dispatcher.BeginInvoke(() =>
             {
                 if (_lyricsHostLoaded)
+                {
+                    ApplyWebLyricsLifetime();
                     UpdateWebLyricsPresentation(allowTransition: true);
+                    ApplyWebLyricsStyle();
+                }
             });
         }
 
@@ -283,6 +288,17 @@ public partial class TaskBarMediaControl
         internal void ApplyWebLyricsLifetime()
         {
             if (_disposed) return;
+            if (CustomSettingsManager.Instance.Current.RenderingEngine == LyricsRenderingEngine.WpfNative)
+            {
+                _lyricsReleaseTimer.Stop();
+                _lyricsRetryTimer.Stop();
+                if (_lyricsWebRenderer is not null)
+                {
+                    ReleaseWebLyricsRenderer();
+                }
+                return;
+            }
+
             _webLyricsGraphicsDisabled |= WebLyricsGraphicsRecovery.Session.IsDisabled;
             var action = LyricsWebViewLifetimePolicy.Resolve(
                 _lyricsHostLoaded, _owner.PresentationSettings.LyricsEnabled || _owner.VerticalTextRequired, _webLyricsGraphicsDisabled,
@@ -426,31 +442,46 @@ public partial class TaskBarMediaControl
             // lyrics, first readiness, and fault recovery keep snapping into place exactly as before.
             var animateTransition = allowTransition && previous.IsVisible && presentation.IsVisible;
 
-            var showWebLyrics = presentation.IsVisible && !_webLyricsGraphicsDisabled &&
-                                _owner._backgroundPruneLevel < MemoryPruneLevel.DisplayOff && !_owner._isHostVisibilitySuspended &&
-                                _lyricsWebRenderer?.IsReady == true;
-            var metadataVisibility = showWebLyrics ? Visibility.Collapsed : Visibility.Visible;
+            var isWpfNative = CustomSettingsManager.Instance.Current.RenderingEngine == LyricsRenderingEngine.WpfNative;
+            var showLyrics = presentation.IsVisible &&
+                             _owner._backgroundPruneLevel < MemoryPruneLevel.DisplayOff &&
+                             !_owner._isHostVisibilitySuspended &&
+                             (isWpfNative || (!_webLyricsGraphicsDisabled && _lyricsWebRenderer?.IsReady == true));
+            var metadataVisibility = showLyrics ? Visibility.Collapsed : Visibility.Visible;
             if (_owner.SongMetadataPanel.Visibility != metadataVisibility)
             {
                 _owner.SongMetadataPanel.Visibility = metadataVisibility;
                 _owner.ApplyMarqueeLayout(Math.Max(0, _owner.SongInfoStackPanel.Width));
             }
-            // WebView2 must stay in the visible visual tree while it initializes. Hiding this
-            // host until IsReady would prevent navigation from completing on some systems.
-            _owner.SongLyricsPanel.Opacity = showWebLyrics ? 1 : 0;
-            _owner.SongLyricsPanel.IsHitTestVisible = showWebLyrics;
+            _owner.SongLyricsPanel.Opacity = showLyrics ? 1 : 0;
+            _owner.SongLyricsPanel.IsHitTestVisible = showLyrics;
             _owner.MediaBarLyricsBackgroundEffect.IsActive = _owner.IsPlaying;
-            // The web engine decides whether a frame is a progress patch or a line transition.
-            // Sending false on every 50 ms progress frame interrupts its in-flight roll animation.
-            // 设置变更链路（简繁转换方向、日语读音标注开关等）带 skipUnchangedContent：可见内容一字未变时
-            // 这里直接不下发。纵向元数据帧携带播放状态且不带进度，仍按原路径走。
-            // The settings-change chain (Chinese conversion direction, Japanese reading-annotation toggles) passes
-            // skipUnchangedContent: when the visible content is character-for-character identical nothing is sent
-            // here. The vertical metadata frame carries playback state and no progress, so it keeps its path.
-            var contentUnchanged = skipUnchangedContent && !isMetadata && !VisibleContentChanged(previous, presentation);
-            if (!_owner.IsBackgroundPruned && !contentUnchanged &&
-                (isMetadata || LyricsPresentationRefreshPolicy.ShouldPresent(presentation.IsVisible, previous, presentation)))
-                _lyricsWebRenderer?.Present(presentation, animateTransition && MotionPolicy.ResolveCurrent().UseTransitions, isMetadata);
+
+            if (isWpfNative)
+            {
+                _owner.LyricsWebViewHost.Visibility = Visibility.Collapsed;
+                _owner.LyricsWpfHost.Visibility = showLyrics ? Visibility.Visible : Visibility.Collapsed;
+                if (showLyrics)
+                {
+                    try
+                    {
+                        UpdateWpfNativeLyricsPresentation(presentation, previous);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogService.Current?.Warn("Lyrics", $"Lỗi cập nhật lời bài hát WPF Native: {ex.Message}");
+                    }
+                }
+            }
+            else
+            {
+                _owner.LyricsWpfHost.Visibility = Visibility.Collapsed;
+                _owner.LyricsWebViewHost.Visibility = Visibility.Visible;
+                var contentUnchanged = skipUnchangedContent && !isMetadata && !VisibleContentChanged(previous, presentation);
+                if (!_owner.IsBackgroundPruned && !contentUnchanged &&
+                    (isMetadata || LyricsPresentationRefreshPolicy.ShouldPresent(presentation.IsVisible, previous, presentation)))
+                    _lyricsWebRenderer?.Present(presentation, animateTransition && MotionPolicy.ResolveCurrent().UseTransitions, isMetadata);
+            }
             RefreshWebLyricsTimer();
 
             // 文本或逐字时间轴可用性变化后立即重发尺寸请求；没有时间轴时长行需要恢复自然宽度。
@@ -556,7 +587,7 @@ public partial class TaskBarMediaControl
                 primary,
                 textShadow,
                 _owner._isVertical,
-                _owner.VerticalSecondaryFontSize,
+                _owner.EffectiveSecondaryLyricFontSize,
                 _owner.PresentationSettings.TaskbarExperience.MediaTextAlignment.ToString(),
                 !_owner.CurrentMotion.UseContinuousMotion,
                 _owner.UsesAdaptiveTaskbarText && _owner._textBudget.HideSecondary), colorDuration, finishColorTransition);
@@ -623,6 +654,7 @@ public partial class TaskBarMediaControl
             _lyricsRetryTimer.Stop();
             ReleaseWebLyricsRenderer();
             _lyricsCreationFailures = 0;
+            _owner.LyricsWpfHost.Visibility = Visibility.Collapsed;
         }
 
         internal void ReleaseWebLyricsRenderer()
@@ -672,6 +704,120 @@ public partial class TaskBarMediaControl
                 else if (!_webLyricsGraphicsDisabled)
                     RecoverWebLyricsGraphics();
             }) == true;
+        }
+
+        
+        private string? _lastWpfLine1Text;
+        private string? _lastWpfLine2Text;
+        private double _lastAppliedWpfProgress = -1;
+
+        private void UpdateWpfNativeLyricsPresentation(LyricsPresentationFrame presentation, LyricsPresentationFrame previous)
+        {
+            var line1Text = presentation.Current ?? string.Empty;
+            var secondaryText = string.IsNullOrEmpty(presentation.CurrentTranslation) ? presentation.Next : presentation.CurrentTranslation;
+            var customSettings = CustomSettingsManager.Instance.Current;
+
+            bool isTwoLines = (_owner.PresentationSettings.TwoLineLyricsEnabled || customSettings.MediaBarPrimaryContent != MediaBarLyricsDisplayMode.Original)
+                              && !string.IsNullOrWhiteSpace(secondaryText)
+                              && !(_owner.UsesAdaptiveTaskbarText && _owner._textBudget.HideSecondary);
+
+            bool line1Changed = !string.Equals(_lastWpfLine1Text, line1Text, StringComparison.Ordinal);
+            bool line2Changed = !string.Equals(_lastWpfLine2Text, secondaryText, StringComparison.Ordinal);
+
+            if (line1Changed)
+            {
+                _owner.LyricsWpfLine1Text.Text = line1Text;
+                _lastWpfLine1Text = line1Text;
+                _lastAppliedWpfProgress = -1;
+            }
+
+            if (isTwoLines)
+            {
+                if (_owner.LyricsWpfLine2Viewport.Visibility != Visibility.Visible)
+                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Visible;
+
+                if (line2Changed)
+                {
+                    _owner.LyricsWpfLine2Text.Text = secondaryText ?? string.Empty;
+                    _lastWpfLine2Text = secondaryText;
+                }
+            }
+            else
+            {
+                if (_owner.LyricsWpfLine2Viewport.Visibility != Visibility.Collapsed)
+                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
+            }
+
+            // Cỡ chữ
+            var fontSize1 = _owner.EffectiveLyricFontSize;
+            var fontSize2 = _owner.EffectiveSecondaryLyricFontSize;
+            if (customSettings.MediaBarLine1FontSize > 0) fontSize1 = customSettings.MediaBarLine1FontSize;
+            if (customSettings.MediaBarLine2FontSize > 0) fontSize2 = customSettings.MediaBarLine2FontSize;
+
+            if (_owner.LyricsWpfLine1Text.FontSize != fontSize1) _owner.LyricsWpfLine1Text.FontSize = fontSize1;
+            if (_owner.LyricsWpfLine2Text.FontSize != fontSize2) _owner.LyricsWpfLine2Text.FontSize = fontSize2;
+
+            // Đổ bóng chữ
+            var shadowColor = _lyricsUsesLightText ? Colors.Black : Colors.White;
+            var shadowOpacity = _lyricsNeedsContrastShadow ? 0.8 : 0.0;
+            if (_owner.LyricsWpfLine1Shadow.Opacity != shadowOpacity)
+            {
+                _owner.LyricsWpfLine1Shadow.Opacity = shadowOpacity;
+                _owner.LyricsWpfLine1Shadow.Color = shadowColor;
+                _owner.LyricsWpfLine2Shadow.Opacity = shadowOpacity;
+                _owner.LyricsWpfLine2Shadow.Color = shadowColor;
+            }
+
+            // Màu chữ / Karaoke Brush
+            var baseColor = (_lyricsForeground as SolidColorBrush)?.Color ?? (_lyricsUsesLightText ? Colors.White : Colors.Black);
+            if (presentation.WordScanProgress.HasValue && presentation.WordScanProgress.Value >= 0 && presentation.WordScanProgress.Value <= 1)
+            {
+                var progress = presentation.WordScanProgress.Value;
+                if (line1Changed || Math.Abs(progress - _lastAppliedWpfProgress) >= 0.005)
+                {
+                    _owner.LyricsWpfLine1Text.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(baseColor, progress, _lyricsUsesLightText);
+                    _lastAppliedWpfProgress = progress;
+                }
+            }
+            else
+            {
+                if (_owner.LyricsWpfLine1Text.Foreground != _lyricsForeground)
+                    _owner.LyricsWpfLine1Text.Foreground = _lyricsForeground;
+                _lastAppliedWpfProgress = -1;
+            }
+
+            if (isTwoLines)
+            {
+                var secondaryBrush = _lyricsForeground.Clone();
+                secondaryBrush.Opacity = SystemParameters.HighContrast ? 1.0 : 0.72;
+                if (secondaryBrush.CanFreeze) secondaryBrush.Freeze();
+                _owner.LyricsWpfLine2Text.Foreground = secondaryBrush;
+            }
+
+            // Căn lề & Cuộn ngang cho câu dài
+            var align = _owner.PresentationSettings.LyricsTextAlignment switch
+            {
+                LyricsTextAlignment.Left => HorizontalAlignment.Left,
+                LyricsTextAlignment.Right => HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Center
+            };
+
+            KaraokeLineScrollHelper.Update(
+                _owner.LyricsWpfLine1Viewport,
+                _owner.LyricsWpfLine1Text,
+                presentation.ScrollProgress ?? double.NaN,
+                align,
+                line1Changed);
+
+            if (isTwoLines)
+            {
+                KaraokeLineScrollHelper.Update(
+                    _owner.LyricsWpfLine2Viewport,
+                    _owner.LyricsWpfLine2Text,
+                    double.NaN,
+                    align,
+                    line2Changed);
+            }
         }
 
         internal void DisableWebLyricsGraphics()
