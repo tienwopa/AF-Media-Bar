@@ -65,7 +65,7 @@ public sealed class BilingualLyricsManager
         if (lines.Count == 0) return false;
 
         int vietnameseMatchCount = 0;
-        int sampleSize = Math.Min(lines.Count, 25);
+        int sampleSize = Math.Min(lines.Count, 50);
 
         for (int i = 0; i < sampleSize; i++)
         {
@@ -76,7 +76,7 @@ public sealed class BilingualLyricsManager
             }
         }
 
-        return vietnameseMatchCount >= 3 || (sampleSize > 0 && ((double)vietnameseMatchCount / sampleSize) >= 0.2);
+        return vietnameseMatchCount >= 2 || (sampleSize > 0 && ((double)vietnameseMatchCount / sampleSize) >= 0.1);
     }
 
     private void FireEvents(LyricDocument doc, bool isVietnamese)
