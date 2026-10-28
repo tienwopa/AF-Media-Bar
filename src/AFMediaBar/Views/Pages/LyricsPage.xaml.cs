@@ -94,6 +94,10 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
             TranslationOffsetMs = settings.TranslationOffsetMs;
             RomanizationOffsetMs = settings.RomanizationOffsetMs;
 
+            CustomMediaBarPrimaryCombo.SelectedIndex = (int)settings.MediaBarPrimaryContent;
+            CustomVietnameseSecondaryCombo.SelectedIndex = (int)settings.VietnameseSecondaryMode;
+            CustomForeignSecondaryCombo.SelectedIndex = (int)settings.ForeignSecondaryMode;
+            CustomForeignCompanionCombo.SelectedIndex = (int)settings.ForeignNextLineCompanion;
             CustomLineOrderCombo.SelectedIndex = (int)settings.LineOrder;
             SelectFontSizeInCombo(CustomTransFontSizeCombo, settings.TranslationFontSize);
             SelectFontSizeInCombo(CustomPinyinFontSizeCombo, settings.RomanizationFontSize);
@@ -432,6 +436,47 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         if (CustomPinyinColorCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item && item.Tag is string hex)
         {
             CustomSettings.Current.RomanizationColor = hex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    
+    private void CustomMediaBarPrimaryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomMediaBarPrimaryCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.MediaBarPrimaryContent = (MediaBarLyricsDisplayMode)CustomMediaBarPrimaryCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomVietnameseSecondaryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomVietnameseSecondaryCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.VietnameseSecondaryMode = (VietnameseSecondaryMode)CustomVietnameseSecondaryCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomForeignSecondaryCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomForeignSecondaryCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.ForeignSecondaryMode = (ForeignSecondaryMode)CustomForeignSecondaryCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomForeignCompanionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomForeignCompanionCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.ForeignNextLineCompanion = (ForeignNextLineCompanion)CustomForeignCompanionCombo.SelectedIndex;
             CustomSettings.SaveSettings();
         }
     }

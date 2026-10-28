@@ -27,11 +27,18 @@ public sealed class BilingualLyricsManager
 
     public event Action<LyricDocument, bool>? BilingualLyricsReady;
 
+    public static BilingualLyricsManager? Instance { get; private set; }
+    public static LyricDocument? ActiveEnrichedDocument { get; private set; }
+    public static bool ActiveIsVietnamese { get; private set; }
+    public static event Action<LyricDocument, bool>? EnrichedLyricsUpdated;
+
+
     public BilingualLyricsManager(
         ITranslationService translationService,
         TranslationCacheService cacheService,
         CustomSettingsManager settingsManager)
     {
+        Instance = this;
         _translationService = translationService;
         _cacheService = cacheService;
         _settingsManager = settingsManager;
@@ -76,7 +83,10 @@ public sealed class BilingualLyricsManager
         if (_documentCache.TryGetValue(trackKey, out var cached))
         {
             _lastProcessedTrack = trackKey;
+            ActiveEnrichedDocument = cached.doc;
+            ActiveIsVietnamese = cached.isVietnamese;
             BilingualLyricsReady?.Invoke(cached.doc, cached.isVietnamese);
+            EnrichedLyricsUpdated?.Invoke(cached.doc, cached.isVietnamese);
             return;
         }
 
@@ -130,14 +140,18 @@ public sealed class BilingualLyricsManager
         bool isVietnamese = IsVietnameseContent(document.Lines);
         _documentCache[trackKey] = (immediateDoc, isVietnamese);
 
+        ActiveEnrichedDocument = immediateDoc;
+        ActiveIsVietnamese = isVietnamese;
         if (isVietnamese && _settingsManager.Current.AutoSkipVietnamese)
         {
             BilingualLyricsReady?.Invoke(immediateDoc, true);
+            EnrichedLyricsUpdated?.Invoke(immediateDoc, true);
             return;
         }
 
         // Bắn ngay document đã có Pinyin (và cache nếu có) để hiển thị tức thì, không để người dùng chờ đợi!
         BilingualLyricsReady?.Invoke(immediateDoc, false);
+        EnrichedLyricsUpdated?.Invoke(immediateDoc, false);
 
         // Nếu tất cả các câu đều đã có sẵn trong cache thì không cần gọi mạng
         if (!hasAnyMissingTranslation)
@@ -190,7 +204,10 @@ public sealed class BilingualLyricsManager
 
                 var fullDoc = new LyricDocument(fullyEnrichedLines, document.SyncType, document.SourceFormat);
                 _documentCache[trackKey] = (fullDoc, false);
+                ActiveEnrichedDocument = fullDoc;
+                ActiveIsVietnamese = false;
                 BilingualLyricsReady?.Invoke(fullDoc, false);
+                EnrichedLyricsUpdated?.Invoke(fullDoc, false);
             }
             catch (OperationCanceledException) { }
             catch (Exception ex)

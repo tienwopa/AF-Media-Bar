@@ -1,3 +1,5 @@
+using AFMediaBar.Custom.Settings;
+using AFMediaBar.Custom.Translation;
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Classes.Settings;
@@ -67,15 +69,41 @@ public static class LyricsPresentationProjector
             return LyricsPresentationFrame.Hidden;
         }
 
-        var currentLine = DisplayLine(lines[index], settings);
-        var nextLine = index + 1 < lines.Count ? DisplayLine(lines[index + 1], settings) : null;
-        var followingLine = index + 2 < lines.Count ? DisplayLine(lines[index + 2], settings) : null;
+        // Tích hợp dữ liệu làm giàu (Bản dịch AI & Pinyin) từ BilingualLyricsManager nếu có
+        var enrichedDoc = BilingualLyricsManager.ActiveEnrichedDocument;
+        var effectiveLines = (enrichedDoc != null && enrichedDoc.Lines.Count == lines.Count)
+            ? enrichedDoc.Lines
+            : lines;
+
+        var currentLine = DisplayLine(effectiveLines[index], settings);
+        var nextLine = index + 1 < effectiveLines.Count ? DisplayLine(effectiveLines[index + 1], settings) : null;
+        var followingLine = index + 2 < effectiveLines.Count ? DisplayLine(effectiveLines[index + 2], settings) : null;
+
+        // Can thiệp vị trí hiển thị chính của Media Bar (Lời gốc / Lời dịch / Pinyin)
+        var customSettings = CustomSettingsManager.Instance.Current;
+        var mediaBarMode = customSettings.MediaBarPrimaryContent;
+
+        string primaryDisplayText = currentLine.Text;
+        string? candidateSecondaryTrans = currentLine.Translation;
+        string? candidateSecondaryRom = currentLine.Romanization;
+
+        if (mediaBarMode == MediaBarLyricsDisplayMode.Translation && !string.IsNullOrWhiteSpace(currentLine.Translation))
+        {
+            primaryDisplayText = currentLine.Translation;
+            candidateSecondaryTrans = currentLine.Text;
+        }
+        else if (mediaBarMode == MediaBarLyricsDisplayMode.Romanization && !string.IsNullOrWhiteSpace(currentLine.Romanization))
+        {
+            primaryDisplayText = currentLine.Romanization;
+            candidateSecondaryRom = currentLine.Text;
+        }
+
         var currentSecondary = settings.TwoLineLyricsEnabled
             ? LyricsSecondaryLinePolicy.ResolveSelection(
                 settings.LyricsSecondaryLine,
                 nextLine?.Text,
-                currentLine.Translation,
-                currentLine.Romanization)
+                candidateSecondaryTrans,
+                candidateSecondaryRom)
             : null;
         var nextSecondary = settings.TwoLineLyricsEnabled && nextLine is not null
             ? LyricsSecondaryLinePolicy.ResolveSelection(
@@ -113,7 +141,7 @@ public static class LyricsPresentationProjector
             true,
             BuildTrackId(snapshot),
             index,
-            LyricsChineseConverter.Convert(currentLine.Text, conversion),
+            LyricsChineseConverter.Convert(primaryDisplayText, conversion),
             LyricsChineseConverter.Convert(visibleNext, conversion),
             Present(currentTranslation, stripBracketSymbols, conversion),
             Present(nextTranslation, stripBracketSymbols, conversion),

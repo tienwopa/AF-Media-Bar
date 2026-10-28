@@ -217,6 +217,60 @@ public enum TranslationProviderType
 /// <summary>
 /// Cấu hình tùy biến dành riêng cho tính năng Song ngữ &amp; Dual Taskbar Lyrics.
 /// </summary>
+/// <summary>
+/// Chế độ hiển thị trên Taskbar phụ khi bài hát gốc là Tiếng Việt.
+/// </summary>
+public enum VietnameseSecondaryMode
+{
+    /// <summary>Hiển thị câu kế tiếp (Mặc định).</summary>
+    NextLine = 0,
+
+    /// <summary>Để trống như cũ.</summary>
+    Empty = 1
+}
+
+/// <summary>
+/// Chế độ hiển thị trên Taskbar phụ khi bài hát gốc là Nước ngoài.
+/// </summary>
+public enum ForeignSecondaryMode
+{
+    /// <summary>Hiển thị song ngữ: Lời dịch + Pinyin (Mặc định).</summary>
+    Bilingual = 0,
+
+    /// <summary>Hiển thị câu kế tiếp.</summary>
+    NextLine = 1
+}
+
+/// <summary>
+/// Thành phần đi kèm cùng câu kế tiếp khi bài hát gốc là Nước ngoài.
+/// </summary>
+public enum ForeignNextLineCompanion
+{
+    /// <summary>Kèm Lời dịch Tiếng Việt (Mặc định).</summary>
+    Translation = 0,
+
+    /// <summary>Kèm Pinyin / Phiên âm.</summary>
+    Romanization = 1,
+
+    /// <summary>Chỉ hiển thị 1 dòng câu kế tiếp thuần túy.</summary>
+    None = 2
+}
+
+/// <summary>
+/// Nội dung hiển thị tại vị trí chính của Media Bar (vị trí lời gốc).
+/// </summary>
+public enum MediaBarLyricsDisplayMode
+{
+    /// <summary>Lời bài hát gốc (Mặc định).</summary>
+    Original = 0,
+
+    /// <summary>Lời dịch Tiếng Việt.</summary>
+    Translation = 1,
+
+    /// <summary>Pinyin / Phiên âm.</summary>
+    Romanization = 2
+}
+
 public sealed class CustomSettings
 {
     /// <summary>Bật/tắt tính năng dịch và hiển thị song ngữ.</summary>
@@ -293,6 +347,19 @@ public sealed class CustomSettings
 
     /// <summary>Tự động ẩn bản dịch khi lời bài hát gốc đã là Tiếng Việt.</summary>
     public bool AutoSkipVietnamese { get; set; } = true;
+
+    /// <summary>Chế độ hiển thị trên Taskbar phụ khi bài hát gốc là Tiếng Việt.</summary>
+    public VietnameseSecondaryMode VietnameseSecondaryMode { get; set; } = VietnameseSecondaryMode.NextLine;
+
+    /// <summary>Chế độ hiển thị trên Taskbar phụ khi bài hát gốc là Nước ngoài.</summary>
+    public ForeignSecondaryMode ForeignSecondaryMode { get; set; } = ForeignSecondaryMode.Bilingual;
+
+    /// <summary>Thành phần đi kèm cùng câu kế tiếp khi bài hát gốc là Nước ngoài.</summary>
+    public ForeignNextLineCompanion ForeignNextLineCompanion { get; set; } = ForeignNextLineCompanion.Translation;
+
+    /// <summary>Nội dung hiển thị tại vị trí chính của Media Bar (vị trí lời gốc).</summary>
+    public MediaBarLyricsDisplayMode MediaBarPrimaryContent { get; set; } = MediaBarLyricsDisplayMode.Original;
+
 
     /// <summary>Màu sắc chữ của Lời dịch Tiếng Việt (mã HEX, ví dụ: #FFFFFF hoặc #18181B).</summary>
     public string TranslationColor { get; set; } = "#FFFFFF";

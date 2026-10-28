@@ -97,6 +97,33 @@ public sealed class DualOverlayCoordinator : IDisposable
         _isCurrentTrackVietnamese = isVietnamese;
     }
 
+    private static (LyricLine? current, LyricLine? next) MatchCurrentAndNextLine(IReadOnlyList<LyricLine> lines, double seconds)
+    {
+        if (lines.Count == 0) return (null, null);
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            if (seconds >= line.Start && seconds <= line.End)
+            {
+                var next = (i + 1 < lines.Count) ? lines[i + 1] : null;
+                return (line, next);
+            }
+            if (seconds < line.Start)
+            {
+                if (i > 0)
+                {
+                    return (lines[i - 1], lines[i]);
+                }
+                else
+                {
+                    return (null, lines[0]);
+                }
+            }
+        }
+        return (seconds >= lines[^1].Start ? lines[^1] : null, null);
+    }
+
     private static LyricLine? MatchLineAt(IReadOnlyList<LyricLine> lines, double seconds)
     {
         if (lines.Count == 0) return null;
@@ -165,17 +192,13 @@ public sealed class DualOverlayCoordinator : IDisposable
         double transSeconds = currentSeconds + (settings.TranslationOffsetMs / 1000.0);
         double pinyinSeconds = currentSeconds + (settings.RomanizationOffsetMs / 1000.0);
 
+        var (currLine, nextLine) = MatchCurrentAndNextLine(lines, currentSeconds);
         var transLine = MatchLineAt(lines, transSeconds);
         var pinyinLine = MatchLineAt(lines, pinyinSeconds);
 
-        if (transLine == null && pinyinLine == null)
-        {
-            HideAllWindows();
-            return;
-        }
-
         string? translation = transLine?.Translation;
         string? pinyin = pinyinLine?.Romanization;
+        string? nextText = nextLine?.Text;
 
         // Bỏ qua dịch nếu bài hát là Tiếng Việt
         if (_isCurrentTrackVietnamese && settings.AutoSkipVietnamese)
@@ -220,7 +243,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         // Điều phối nội dung tới Taskbar chính hoặc Màn hình 2
-        DispatchContent(translation, transProgress, pinyin, pinyinProgress, settings);
+        DispatchContent(translation, transProgress, pinyin, pinyinProgress, nextText, settings);
     }
 
     /// <summary>
@@ -341,6 +364,7 @@ public sealed class DualOverlayCoordinator : IDisposable
     private void DispatchContent(
         string? translation, double transProgress,
         string? pinyin, double pinyinProgress,
+        string? nextLineText,
         CustomSettings settings)
     {
         // Kiểm tra xem máy tính có màn hình thứ 2 hay không
@@ -375,41 +399,82 @@ public sealed class DualOverlayCoordinator : IDisposable
         double primaryProgress1 = 1.0;
         double primaryProgress2 = 1.0;
 
-        bool hasTrans = showTransOnPrimary && !string.IsNullOrWhiteSpace(translation);
-        bool hasPinyin = showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin);
-
-        if (hasTrans && hasPinyin)
+        if (_isCurrentTrackVietnamese)
         {
-            if (settings.LineOrder == BilingualLineOrder.RomanizationTop)
+            // Bài hát Tiếng Việt: Mặc định hiển thị câu kế tiếp (thuần text)
+            if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
             {
-                // Pinyin ở trên, Lời dịch ở dưới
-                primaryLine1 = pinyin;
-                primaryProgress1 = pinyinProgress;
-                primaryLine2 = translation;
-                primaryProgress2 = transProgress;
-                isPrimaryPinyin = true;
+                primaryLine1 = nextLineText;
+                primaryLine2 = null;
+                isPrimaryPinyin = false;
+                primaryProgress1 = 1.0;
+                primaryProgress2 = 1.0;
+            }
+        }
+        else
+        {
+            // Bài hát Nước ngoài
+            if (settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
+            {
+                // Khi bật câu kế tiếp cho bài nước ngoài: Dòng 1 là Câu kế tiếp, Dòng 2 chọn 1 trong 2 (Dịch hoặc Pinyin)
+                primaryLine1 = nextLineText;
+                primaryProgress1 = 1.0;
+
+                if (settings.ForeignNextLineCompanion == ForeignNextLineCompanion.Translation && showTransOnPrimary && !string.IsNullOrWhiteSpace(translation))
+                {
+                    primaryLine2 = translation;
+                    primaryProgress2 = transProgress;
+                    isPrimaryPinyin = false;
+                }
+                else if (settings.ForeignNextLineCompanion == ForeignNextLineCompanion.Romanization && showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin))
+                {
+                    primaryLine2 = pinyin;
+                    primaryProgress2 = pinyinProgress;
+                    isPrimaryPinyin = true;
+                }
+                else
+                {
+                    primaryLine2 = null;
+                }
             }
             else
             {
-                // Lời dịch ở trên, Pinyin ở dưới (Mặc định)
-                primaryLine1 = translation;
-                primaryProgress1 = transProgress;
-                primaryLine2 = pinyin;
-                primaryProgress2 = pinyinProgress;
-                isPrimaryPinyin = false;
+                // Mặc định như cũ: Hiển thị song ngữ Lời dịch + Pinyin
+                bool hasTrans = showTransOnPrimary && !string.IsNullOrWhiteSpace(translation);
+                bool hasPinyin = showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin);
+
+                if (hasTrans && hasPinyin)
+                {
+                    if (settings.LineOrder == BilingualLineOrder.RomanizationTop)
+                    {
+                        primaryLine1 = pinyin;
+                        primaryProgress1 = pinyinProgress;
+                        primaryLine2 = translation;
+                        primaryProgress2 = transProgress;
+                        isPrimaryPinyin = true;
+                    }
+                    else
+                    {
+                        primaryLine1 = translation;
+                        primaryProgress1 = transProgress;
+                        primaryLine2 = pinyin;
+                        primaryProgress2 = pinyinProgress;
+                        isPrimaryPinyin = false;
+                    }
+                }
+                else if (hasTrans)
+                {
+                    primaryLine1 = translation;
+                    primaryProgress1 = transProgress;
+                    isPrimaryPinyin = false;
+                }
+                else if (hasPinyin)
+                {
+                    primaryLine1 = pinyin;
+                    primaryProgress1 = pinyinProgress;
+                    isPrimaryPinyin = true;
+                }
             }
-        }
-        else if (hasTrans)
-        {
-            primaryLine1 = translation;
-            primaryProgress1 = transProgress;
-            isPrimaryPinyin = false;
-        }
-        else if (hasPinyin)
-        {
-            primaryLine1 = pinyin;
-            primaryProgress1 = pinyinProgress;
-            isPrimaryPinyin = true;
         }
 
         if (!string.IsNullOrWhiteSpace(primaryLine1))
@@ -440,39 +505,78 @@ public sealed class DualOverlayCoordinator : IDisposable
             double secProgress1 = 1.0;
             double secProgress2 = 1.0;
 
-            bool hasSecTrans = showTransOnSec && !string.IsNullOrWhiteSpace(translation);
-            bool hasSecPinyin = showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin);
-
-            if (hasSecTrans && hasSecPinyin)
+            if (_isCurrentTrackVietnamese)
             {
-                if (settings.LineOrder == BilingualLineOrder.RomanizationTop)
+                if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
                 {
-                    secLine1 = pinyin;
-                    secProgress1 = pinyinProgress;
-                    secLine2 = translation;
-                    secProgress2 = transProgress;
-                    isSecPinyin = true;
+                    secLine1 = nextLineText;
+                    secLine2 = null;
+                    isSecPinyin = false;
+                    secProgress1 = 1.0;
+                    secProgress2 = 1.0;
+                }
+            }
+            else
+            {
+                if (settings.ForeignSecondaryMode == ForeignSecondaryMode.NextLine && !string.IsNullOrWhiteSpace(nextLineText))
+                {
+                    secLine1 = nextLineText;
+                    secProgress1 = 1.0;
+
+                    if (settings.ForeignNextLineCompanion == ForeignNextLineCompanion.Translation && showTransOnSec && !string.IsNullOrWhiteSpace(translation))
+                    {
+                        secLine2 = translation;
+                        secProgress2 = transProgress;
+                        isSecPinyin = false;
+                    }
+                    else if (settings.ForeignNextLineCompanion == ForeignNextLineCompanion.Romanization && showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
+                    {
+                        secLine2 = pinyin;
+                        secProgress2 = pinyinProgress;
+                        isSecPinyin = true;
+                    }
+                    else
+                    {
+                        secLine2 = null;
+                    }
                 }
                 else
                 {
-                    secLine1 = translation;
-                    secProgress1 = transProgress;
-                    secLine2 = pinyin;
-                    secProgress2 = pinyinProgress;
-                    isSecPinyin = false;
+                    bool hasSecTrans = showTransOnSec && !string.IsNullOrWhiteSpace(translation);
+                    bool hasSecPinyin = showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin);
+
+                    if (hasSecTrans && hasSecPinyin)
+                    {
+                        if (settings.LineOrder == BilingualLineOrder.RomanizationTop)
+                        {
+                            secLine1 = pinyin;
+                            secProgress1 = pinyinProgress;
+                            secLine2 = translation;
+                            secProgress2 = transProgress;
+                            isSecPinyin = true;
+                        }
+                        else
+                        {
+                            secLine1 = translation;
+                            secProgress1 = transProgress;
+                            secLine2 = pinyin;
+                            secProgress2 = pinyinProgress;
+                            isSecPinyin = false;
+                        }
+                    }
+                    else if (hasSecTrans)
+                    {
+                        secLine1 = translation;
+                        secProgress1 = transProgress;
+                        isSecPinyin = false;
+                    }
+                    else if (hasSecPinyin)
+                    {
+                        secLine1 = pinyin;
+                        secProgress1 = pinyinProgress;
+                        isSecPinyin = true;
+                    }
                 }
-            }
-            else if (hasSecTrans)
-            {
-                secLine1 = translation;
-                secProgress1 = transProgress;
-                isSecPinyin = false;
-            }
-            else if (hasSecPinyin)
-            {
-                secLine1 = pinyin;
-                secProgress1 = pinyinProgress;
-                isSecPinyin = true;
             }
 
             if (!string.IsNullOrWhiteSpace(secLine1))

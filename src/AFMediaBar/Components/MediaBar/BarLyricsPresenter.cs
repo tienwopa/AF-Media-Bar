@@ -1,3 +1,6 @@
+using AFMediaBar.Classes.Models;
+using AFMediaBar.Custom.Settings;
+using AFMediaBar.Custom.Translation;
 // BarLyricsPresenter 独占单个控件的呈现资源；由控件加载、挂起与卸载路径驱动，不接管业务服务。
 using System.Windows;
 using System.Windows.Media;
@@ -27,6 +30,8 @@ public partial class TaskBarMediaControl
             OnWebLyricsUnloaded(_owner, new RoutedEventArgs());
             _owner.Loaded -= OnWebLyricsLoaded;
             _owner.Unloaded -= OnWebLyricsUnloaded;
+            CustomSettingsManager.Instance.SettingsChanged -= OnCustomLyricsSettingsChanged;
+            BilingualLyricsManager.EnrichedLyricsUpdated -= OnEnrichedLyricsUpdated;
             StopWebLyrics();
         }
 
@@ -93,6 +98,8 @@ public partial class TaskBarMediaControl
             SettingsManager.LyricsSettingsChanged += OnWebLyricsSettingsChanged;
             LyricsChineseConverter.Updated += OnChineseConversionUpdated;
             WebLyricsGraphicsRecovery.Session.RecoveryRequested += OnWebLyricsGraphicsRecoveryRequested;
+            CustomSettingsManager.Instance.SettingsChanged += OnCustomLyricsSettingsChanged;
+            BilingualLyricsManager.EnrichedLyricsUpdated += OnEnrichedLyricsUpdated;
             UpdateWebLyricsPresentation(allowTransition: false);
         }
 
@@ -105,7 +112,30 @@ public partial class TaskBarMediaControl
             SettingsManager.LyricsSettingsChanged -= OnWebLyricsSettingsChanged;
             LyricsChineseConverter.Updated -= OnChineseConversionUpdated;
             WebLyricsGraphicsRecovery.Session.RecoveryRequested -= OnWebLyricsGraphicsRecoveryRequested;
+            CustomSettingsManager.Instance.SettingsChanged -= OnCustomLyricsSettingsChanged;
+            BilingualLyricsManager.EnrichedLyricsUpdated -= OnEnrichedLyricsUpdated;
             StopWebLyrics();
+        }
+
+        
+        private void OnCustomLyricsSettingsChanged(CustomSettings settings)
+        {
+            if (_owner.Dispatcher.HasShutdownStarted || _owner.Dispatcher.HasShutdownFinished) return;
+            _owner.Dispatcher.BeginInvoke(() =>
+            {
+                if (_lyricsHostLoaded)
+                    UpdateWebLyricsPresentation(allowTransition: true);
+            });
+        }
+
+        private void OnEnrichedLyricsUpdated(LyricDocument doc, bool isVietnamese)
+        {
+            if (_owner.Dispatcher.HasShutdownStarted || _owner.Dispatcher.HasShutdownFinished) return;
+            _owner.Dispatcher.BeginInvoke(() =>
+            {
+                if (_lyricsHostLoaded && CustomSettingsManager.Instance.Current.MediaBarPrimaryContent != MediaBarLyricsDisplayMode.Original)
+                    UpdateWebLyricsPresentation(allowTransition: true);
+            });
         }
 
         internal void OnChineseConversionUpdated()

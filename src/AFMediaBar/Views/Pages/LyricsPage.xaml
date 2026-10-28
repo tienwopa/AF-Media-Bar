@@ -442,6 +442,60 @@
                             Icon="{ui:SymbolIcon TextFontSize24}"
                             IsExpanded="True">
                             <StackPanel Margin="0,0,0,4">
+                                                                <components:SettingsRow
+                                    Description="Tùy chọn hiển thị Lời gốc, Lời dịch Tiếng Việt hoặc Pinyin tại vị trí thanh Media Bar"
+                                    Icon="{ui:SymbolIcon MusicNote224}"
+                                    IsNested="True"
+                                    Title="Nội dung chính trên Media Bar">
+                                    <ComboBox x:Name="CustomMediaBarPrimaryCombo"
+                                              SelectionChanged="CustomMediaBarPrimaryCombo_SelectionChanged"
+                                              Width="260">
+                                        <ComboBoxItem Content="Lời bài hát gốc (Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="Lời dịch Tiếng Việt" Tag="1" />
+                                        <ComboBoxItem Content="Pinyin / Phiên âm" Tag="2" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Tùy chọn hiển thị câu tiếp theo thay vì để trống khi bài hát vốn là Tiếng Việt"
+                                    Icon="{ui:SymbolIcon FastForward24}"
+                                    IsNested="True"
+                                    Title="Khi bài hát là Tiếng Việt (Taskbar phụ)">
+                                    <ComboBox x:Name="CustomVietnameseSecondaryCombo"
+                                              SelectionChanged="CustomVietnameseSecondaryCombo_SelectionChanged"
+                                              Width="260">
+                                        <ComboBoxItem Content="Hiển thị câu kế tiếp (Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="Để trống (Ẩn)" Tag="1" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Lựa chọn hiển thị song ngữ (Dịch + Pinyin) hoặc câu kế tiếp khi nghe nhạc nước ngoài"
+                                    Icon="{ui:SymbolIcon Globe24}"
+                                    IsNested="True"
+                                    Title="Khi bài hát là Nước ngoài (Taskbar phụ)">
+                                    <ComboBox x:Name="CustomForeignSecondaryCombo"
+                                              SelectionChanged="CustomForeignSecondaryCombo_SelectionChanged"
+                                              Width="260">
+                                        <ComboBoxItem Content="Lời dịch &amp; Pinyin (Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="Hiển thị câu kế tiếp" Tag="1" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
+                                    Description="Khi bật câu kế tiếp cho bài nước ngoài: Chọn 1 trong 2 dòng đi kèm (Dịch hoặc Pinyin)"
+                                    Icon="{ui:SymbolIcon DocumentBulletListMultiple24}"
+                                    IsNested="True"
+                                    Title="Dòng đi kèm câu kế tiếp (Nhạc nước ngoài)">
+                                    <ComboBox x:Name="CustomForeignCompanionCombo"
+                                              SelectionChanged="CustomForeignCompanionCombo_SelectionChanged"
+                                              Width="260">
+                                        <ComboBoxItem Content="Kèm Lời dịch Tiếng Việt (Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="Kèm Pinyin / Phiên âm" Tag="1" />
+                                        <ComboBoxItem Content="Chỉ hiện câu kế tiếp (1 dòng)" Tag="2" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
                                 <components:SettingsRow
                                     Description="Lựa chọn dòng nào ở trên, dòng nào ở dưới khi hiển thị song song 2 dòng"
                                     Icon="{ui:SymbolIcon ArrowSort24}"
