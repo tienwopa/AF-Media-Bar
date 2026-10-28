@@ -74,7 +74,12 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         TranslationOffsetMs = settings.TranslationOffsetMs;
         RomanizationOffsetMs = settings.RomanizationOffsetMs;
 
-        SelectFontSizeInCombo(CustomFontSizeCombo, settings.FontSize);
+        CustomLineOrderCombo.SelectedIndex = (int)settings.LineOrder;
+        SelectFontSizeInCombo(CustomTransFontSizeCombo, settings.TranslationFontSize);
+        SelectFontSizeInCombo(CustomPinyinFontSizeCombo, settings.RomanizationFontSize);
+        CustomFontWeightCombo.SelectedIndex = (int)settings.WeightEmphasis;
+        CustomKaraokeTargetCombo.SelectedIndex = (int)settings.KaraokeTarget;
+
         SelectColorInCombo(CustomTransColorCombo, settings.TranslationColor);
         SelectColorInCombo(CustomPinyinColorCombo, settings.RomanizationColor);
     }
@@ -132,13 +137,51 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         CustomSettings.SaveSettings();
     }
 
-    private void CustomFontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void CustomLineOrderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (CustomFontSizeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+        if (CustomLineOrderCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.LineOrder = (BilingualLineOrder)CustomLineOrderCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomTransFontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomTransFontSizeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
             item.Tag is string tagStr &&
             double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double size))
         {
-            CustomSettings.Current.FontSize = size;
+            CustomSettings.Current.TranslationFontSize = size;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomPinyinFontSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomPinyinFontSizeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            item.Tag is string tagStr &&
+            double.TryParse(tagStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double size))
+        {
+            CustomSettings.Current.RomanizationFontSize = size;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomFontWeightCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomFontWeightCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.WeightEmphasis = (BilingualWeightEmphasis)CustomFontWeightCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomKaraokeTargetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CustomKaraokeTargetCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.KaraokeTarget = (KaraokeTargetMode)CustomKaraokeTargetCombo.SelectedIndex;
             CustomSettings.SaveSettings();
         }
     }

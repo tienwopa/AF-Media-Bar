@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -10,7 +11,7 @@ namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
 /// Cửa sổ hiển thị nhúng chìm vào thanh Taskbar chính của Windows (Shell_TrayWnd).
-/// Hỗ trợ hiển thị 1 dòng hoặc 2 dòng gộp, chạy chữ Karaoke mượt mà, và tự điều chỉnh tỷ lệ phông chữ chống tràn.
+/// Hỗ trợ hiển thị 1 hoặc 2 dòng gộp, chạy chữ Karaoke mượt mà, và tự điều chỉnh kích thước/độ đậm độc lập.
 /// </summary>
 public partial class DualTaskbarPrimaryWindow : Window
 {
@@ -19,7 +20,7 @@ public partial class DualTaskbarPrimaryWindow : Window
     private bool _isDocked;
     private IntPtr _lastTaskbarHwnd = IntPtr.Zero;
 
-    // Lưu trữ trạng thái hiển thị gần nhất để cập nhật tức thì khi đổi cài đặt
+    // Lưu trữ trạng thái hiển thị gần nhất
     private string _currentPrimaryText = string.Empty;
     private string? _currentSecondaryText;
     private bool _currentIsPrimaryPinyin;
@@ -58,7 +59,12 @@ public partial class DualTaskbarPrimaryWindow : Window
                 return;
             }
 
-            UpdateContent(_currentPrimaryText, _currentSecondaryText, _currentIsPrimaryPinyin, _currentPrimaryProgress, _currentSecondaryProgress);
+            UpdateContent(
+                _currentPrimaryText,
+                _currentSecondaryText,
+                _currentIsPrimaryPinyin,
+                _currentPrimaryProgress,
+                _currentSecondaryProgress);
         }
         catch { }
     }
@@ -155,7 +161,7 @@ public partial class DualTaskbarPrimaryWindow : Window
     }
 
     /// <summary>
-    /// Cập nhật nội dung hiển thị theo 1 hoặc 2 dòng kèm hiệu ứng Karaoke tiến độ độc lập cho từng dòng.
+    /// Cập nhật nội dung hiển thị theo 1 hoặc 2 dòng kèm tiến độ chạy chữ Karaoke độc lập.
     /// </summary>
     public void UpdateContent(
         string primaryText,
@@ -181,54 +187,80 @@ public partial class DualTaskbarPrimaryWindow : Window
             var settings = _settingsManager.Current;
             ResolveColors(isPrimaryPinyin, out var pCol, out var sCol, out bool isLight);
 
-            // 1. Áp dụng Brush màu (Chạy chữ Karaoke hoặc màu tĩnh)
-            if (settings.EnableKaraokeHighlight)
-            {
-                PrimaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(pCol, primaryProgress, isLight);
-                SecondaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(sCol, secondaryProgress, isLight);
-            }
-            else
-            {
-                PrimaryLineText.Foreground = new SolidColorBrush(pCol);
-                SecondaryLineText.Foreground = new SolidColorBrush(sCol);
-            }
+            // 1. Phân bổ cỡ chữ độc lập
+            double pSize = isPrimaryPinyin
+                ? (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0)
+                : (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5);
 
-            // 2. Tự điều chỉnh kích thước cỡ chữ thông minh để Pinyin không bao giờ bị cắt cụt
-            double baseSize = settings.FontSize > 0 ? settings.FontSize : 11.5;
+            double sSize = isPrimaryPinyin
+                ? (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5)
+                : (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0);
+
             bool hasTwoLines = !string.IsNullOrWhiteSpace(secondaryText);
 
             if (hasTwoLines)
             {
-                // Khi hiển thị 2 dòng gộp, co dãn tỷ lệ để luôn vừa vặn 100% trong khung Taskbar
-                double line1Size;
-                double line2Size;
+                // Khi hiển thị 2 dòng, giới hạn nhẹ kích thước để không tràn chiều cao Taskbar (40-48px)
+                pSize = Math.Min(pSize, 13.0);
+                sSize = Math.Min(sSize, 12.0);
 
-                if (baseSize <= 12.0)
-                {
-                    line1Size = baseSize;
-                    line2Size = Math.Max(8.5, baseSize - 2.0);
-                }
-                else
-                {
-                    line1Size = Math.Min(baseSize, 12.5);
-                    line2Size = Math.Max(8.5, Math.Min(baseSize - 2.5, 10.5));
-                }
-
-                PrimaryLineText.FontSize = line1Size;
-                SecondaryLineText.FontSize = line2Size;
-                PrimaryLineText.LineHeight = line1Size * 1.15;
-                SecondaryLineText.LineHeight = line2Size * 1.15;
+                PrimaryLineText.FontSize = pSize;
+                SecondaryLineText.FontSize = sSize;
+                PrimaryLineText.LineHeight = pSize * 1.15;
+                SecondaryLineText.LineHeight = sSize * 1.15;
 
                 SecondaryLineText.Text = secondaryText!;
                 SecondaryLineText.Visibility = Visibility.Visible;
             }
             else
             {
-                // Khi hiển thị 1 dòng duy nhất, áp dụng đầy đủ kích thước người dùng đã chọn
-                PrimaryLineText.FontSize = baseSize;
+                PrimaryLineText.FontSize = pSize;
                 PrimaryLineText.LineHeight = double.NaN;
                 SecondaryLineText.Visibility = Visibility.Collapsed;
             }
+
+            // 2. Phân bổ độ đậm chữ (FontWeight)
+            FontWeight pWeight = FontWeights.Normal;
+            FontWeight sWeight = FontWeights.Normal;
+
+            switch (settings.WeightEmphasis)
+            {
+                case BilingualWeightEmphasis.Balanced:
+                    pWeight = FontWeights.Normal;
+                    sWeight = FontWeights.Normal;
+                    break;
+                case BilingualWeightEmphasis.EmphasisTranslation:
+                    if (isPrimaryPinyin) { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
+                    else { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
+                    break;
+                case BilingualWeightEmphasis.EmphasisRomanization:
+                    if (isPrimaryPinyin) { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
+                    else { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
+                    break;
+                case BilingualWeightEmphasis.BothSemiBold:
+                    pWeight = FontWeights.SemiBold;
+                    sWeight = FontWeights.SemiBold;
+                    break;
+            }
+
+            PrimaryLineText.FontWeight = pWeight;
+            SecondaryLineText.FontWeight = sWeight;
+
+            // 3. Áp dụng Brush màu (Karaoke Wipe hoặc Solid Color)
+            bool enableKaraoke = settings.EnableKaraokeHighlight;
+            bool pinyinWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.RomanizationOnly);
+            bool transWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.TranslationOnly);
+
+            bool primaryWipe = isPrimaryPinyin ? pinyinWipe : transWipe;
+            bool secondaryWipe = isPrimaryPinyin ? transWipe : pinyinWipe;
+
+            PrimaryLineText.Foreground = primaryWipe
+                ? KaraokeBrushHelper.CreateKaraokeBrush(pCol, primaryProgress, isLight)
+                : new SolidColorBrush(pCol);
+
+            SecondaryLineText.Foreground = secondaryWipe
+                ? KaraokeBrushHelper.CreateKaraokeBrush(sCol, secondaryProgress, isLight)
+                : new SolidColorBrush(sCol);
 
             PrimaryLineText.Text = primaryText;
             Visibility = Visibility.Visible;

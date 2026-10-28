@@ -1,25 +1,20 @@
+using System;
+using System.Linq;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
 using AFMediaBar.Classes.Interop;
-using static AFMediaBar.Classes.Interop.NativeMethods;
-using AFMediaBar.Classes.Services;
+using AFMediaBar.Classes.Utils;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Utils;
 
 namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
-/// Cửa sổ hiển thị dành riêng cho Màn hình thứ 2.
-/// Tự động tìm màn hình phụ và dock vào Shell_SecondaryTrayWnd hoặc neo vào đáy màn hình 2.
-/// Hỗ trợ căn lề Trái, Giữa, Phải, chạy chữ Karaoke và tự co dãn kích thước chống tràn chữ.
+/// Cửa sổ hiển thị lời dịch / pinyin nổi trên Màn hình thứ 2 (Secondary Monitor).
 /// </summary>
 public partial class DualTaskbarSecondaryWindow : Window
 {
-    private readonly ITaskbarDockService _dockService;
     private readonly CustomSettingsManager _settingsManager;
-    private bool _isDocked;
-    private IntPtr _lastSecondaryTaskbarHwnd = IntPtr.Zero;
 
     private string _currentPrimaryText = string.Empty;
     private string? _currentSecondaryText;
@@ -27,24 +22,21 @@ public partial class DualTaskbarSecondaryWindow : Window
     private double _currentPrimaryProgress = 1.0;
     private double _currentSecondaryProgress = 1.0;
 
-    public DualTaskbarSecondaryWindow(
-        ITaskbarDockService dockService,
-        CustomSettingsManager settingsManager)
+    public DualTaskbarSecondaryWindow(CustomSettingsManager settingsManager)
     {
         InitializeComponent();
-        _dockService = dockService;
         _settingsManager = settingsManager;
 
         Loaded += (_, _) =>
         {
             ApplyAppearance();
-            EnsurePositioned();
+            PositionOnSecondaryScreen();
         };
 
         _settingsManager.SettingsChanged += _ => Dispatcher.Invoke(() =>
         {
             ApplyAppearance();
-            EnsurePositioned();
+            PositionOnSecondaryScreen();
         });
 
         TaskbarThemeHelper.TaskbarThemeChanged += () => Dispatcher.Invoke(() => ApplyAppearance());
@@ -59,7 +51,12 @@ public partial class DualTaskbarSecondaryWindow : Window
                 return;
             }
 
-            UpdateContent(_currentPrimaryText, _currentSecondaryText, _currentIsPrimaryPinyin, _currentPrimaryProgress, _currentSecondaryProgress);
+            UpdateContent(
+                _currentPrimaryText,
+                _currentSecondaryText,
+                _currentIsPrimaryPinyin,
+                _currentPrimaryProgress,
+                _currentSecondaryProgress);
         }
         catch { }
     }
@@ -179,35 +176,74 @@ public partial class DualTaskbarSecondaryWindow : Window
             var settings = _settingsManager.Current;
             ResolveColors(isPrimaryPinyin, out var pCol, out var sCol, out bool isLight);
 
-            // 1. Áp dụng Brush màu (Chạy chữ Karaoke hoặc màu tĩnh)
-            if (settings.EnableKaraokeHighlight)
-            {
-                PrimaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(pCol, primaryProgress, isLight);
-                SecondaryLineText.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(sCol, secondaryProgress, isLight);
-            }
-            else
-            {
-                PrimaryLineText.Foreground = new SolidColorBrush(pCol);
-                SecondaryLineText.Foreground = new SolidColorBrush(sCol);
-            }
+            // 1. Phân bổ cỡ chữ độc lập
+            double pSize = isPrimaryPinyin
+                ? (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0)
+                : (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5);
 
-            // 2. Kích thước chữ và căn lề
-            double baseSize = settings.FontSize > 0 ? settings.FontSize : 11.5;
+            double sSize = isPrimaryPinyin
+                ? (settings.TranslationFontSize > 0 ? settings.TranslationFontSize : 11.5)
+                : (settings.RomanizationFontSize > 0 ? settings.RomanizationFontSize : 11.0);
+
             bool hasTwoLines = !string.IsNullOrWhiteSpace(secondaryText);
 
             if (hasTwoLines)
             {
-                PrimaryLineText.FontSize = baseSize;
-                SecondaryLineText.FontSize = Math.Max(9.0, baseSize - 1.5);
+                PrimaryLineText.FontSize = pSize;
+                SecondaryLineText.FontSize = sSize;
                 SecondaryLineText.Text = secondaryText!;
                 SecondaryLineText.Visibility = Visibility.Visible;
             }
             else
             {
-                PrimaryLineText.FontSize = baseSize;
+                PrimaryLineText.FontSize = pSize;
                 SecondaryLineText.Visibility = Visibility.Collapsed;
             }
 
+            // 2. Phân bổ độ đậm chữ (FontWeight)
+            FontWeight pWeight = FontWeights.Normal;
+            FontWeight sWeight = FontWeights.Normal;
+
+            switch (settings.WeightEmphasis)
+            {
+                case BilingualWeightEmphasis.Balanced:
+                    pWeight = FontWeights.Normal;
+                    sWeight = FontWeights.Normal;
+                    break;
+                case BilingualWeightEmphasis.EmphasisTranslation:
+                    if (isPrimaryPinyin) { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
+                    else { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
+                    break;
+                case BilingualWeightEmphasis.EmphasisRomanization:
+                    if (isPrimaryPinyin) { pWeight = FontWeights.SemiBold; sWeight = FontWeights.Normal; }
+                    else { pWeight = FontWeights.Normal; sWeight = FontWeights.SemiBold; }
+                    break;
+                case BilingualWeightEmphasis.BothSemiBold:
+                    pWeight = FontWeights.SemiBold;
+                    sWeight = FontWeights.SemiBold;
+                    break;
+            }
+
+            PrimaryLineText.FontWeight = pWeight;
+            SecondaryLineText.FontWeight = sWeight;
+
+            // 3. Áp dụng Brush màu (Karaoke Wipe hoặc Solid Color)
+            bool enableKaraoke = settings.EnableKaraokeHighlight;
+            bool pinyinWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.RomanizationOnly);
+            bool transWipe = enableKaraoke && (settings.KaraokeTarget == KaraokeTargetMode.Both || settings.KaraokeTarget == KaraokeTargetMode.TranslationOnly);
+
+            bool primaryWipe = isPrimaryPinyin ? pinyinWipe : transWipe;
+            bool secondaryWipe = isPrimaryPinyin ? transWipe : pinyinWipe;
+
+            PrimaryLineText.Foreground = primaryWipe
+                ? KaraokeBrushHelper.CreateKaraokeBrush(pCol, primaryProgress, isLight)
+                : new SolidColorBrush(pCol);
+
+            SecondaryLineText.Foreground = secondaryWipe
+                ? KaraokeBrushHelper.CreateKaraokeBrush(sCol, secondaryProgress, isLight)
+                : new SolidColorBrush(sCol);
+
+            // 4. Căn lề hiển thị
             var textAlignment = settings.SecondaryAlignment switch
             {
                 SecondaryTaskbarAlignment.Left => TextAlignment.Left,
@@ -223,11 +259,13 @@ public partial class DualTaskbarSecondaryWindow : Window
 
             PrimaryLineText.TextAlignment = textAlignment;
             SecondaryLineText.TextAlignment = textAlignment;
+            PrimaryLineText.HorizontalAlignment = horizAlignment;
+            SecondaryLineText.HorizontalAlignment = horizAlignment;
             ContentStack.HorizontalAlignment = horizAlignment;
 
             PrimaryLineText.Text = primaryText;
             Visibility = Visibility.Visible;
-            EnsurePositioned();
+            PositionOnSecondaryScreen();
         });
     }
 
@@ -241,95 +279,39 @@ public partial class DualTaskbarSecondaryWindow : Window
         });
     }
 
-    public void EnsurePositioned()
+    public void PositionOnSecondaryScreen()
     {
         try
         {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd == IntPtr.Zero) return;
-
-            var settings = _settingsManager.Current;
-            int targetWidth = 750;
-            double baseSize = settings.FontSize > 0 ? settings.FontSize : 11.5;
-
-            // 1. Thử dock vào Shell_SecondaryTrayWnd nếu có
-            var secondaryTaskbarHwnd = NativeMethods.FindWindow("Shell_SecondaryTrayWnd", null);
-            if (secondaryTaskbarHwnd != IntPtr.Zero)
+            var monitors = MonitorUtil.GetMonitors();
+            var secondary = monitors.FirstOrDefault(m => !m.isPrimary);
+            if (secondary.monitorArea.Width > 0)
             {
-                if (!_isDocked || _lastSecondaryTaskbarHwnd != secondaryTaskbarHwnd)
+                var wa = secondary.workArea;
+
+                Width = Math.Min(800, wa.Width * 0.7);
+                Height = 56;
+
+                var settings = _settingsManager.Current;
+                if (settings.SecondaryAlignment == SecondaryTaskbarAlignment.Left)
                 {
-                    _dockService.DockWindow(hwnd, secondaryTaskbarHwnd);
-                    _isDocked = true;
-                    _lastSecondaryTaskbarHwnd = secondaryTaskbarHwnd;
+                    Left = wa.X + 40;
+                }
+                else if (settings.SecondaryAlignment == SecondaryTaskbarAlignment.Right)
+                {
+                    Left = wa.Right - Width - 40;
+                }
+                else
+                {
+                    Left = wa.X + (wa.Width - Width) / 2;
                 }
 
-                if (NativeMethods.GetWindowRect(secondaryTaskbarHwnd, out var tbRect))
-                {
-                    int taskbarWidth = tbRect.Right - tbRect.Left;
-                    int taskbarHeight = tbRect.Bottom - tbRect.Top;
-                    int targetHeight = Math.Max(38, taskbarHeight);
-
-                    int targetX = settings.SecondaryAlignment switch
-                    {
-                        SecondaryTaskbarAlignment.Left => 16,
-                        SecondaryTaskbarAlignment.Right => Math.Max(10, taskbarWidth - targetWidth - 24),
-                        _ => Math.Max(10, (taskbarWidth - targetWidth) / 2)
-                    };
-                    int targetY = (taskbarHeight - targetHeight) / 2;
-
-                    NativeMethods.SetWindowPos(
-                        hwnd, 0, targetX, targetY, targetWidth, targetHeight,
-                        0x0040 | 0x0010);
-                    return;
-                }
-            }
-
-            // 2. Nếu Windows không bật taskbar trên màn hình 2 -> Neo nổi ở cạnh dưới màn hình 2
-            var secondaryMonitorRect = GetSecondaryMonitorRect();
-            if (secondaryMonitorRect.HasValue)
-            {
-                var rect = secondaryMonitorRect.Value;
-                int monWidth = rect.Right - rect.Left;
-                int targetHeight = Math.Max(56, (int)(baseSize * 3.6));
-
-                int targetX = settings.SecondaryAlignment switch
-                {
-                    SecondaryTaskbarAlignment.Left => rect.Left + 24,
-                    SecondaryTaskbarAlignment.Right => rect.Right - targetWidth - 24,
-                    _ => rect.Left + (monWidth - targetWidth) / 2
-                };
-                int targetY = rect.Bottom - targetHeight - 4;
-
-                // HWND_TOPMOST = -1
-                NativeMethods.SetWindowPos(
-                    hwnd, -1, targetX, targetY, targetWidth, targetHeight,
-                    0x0040 | 0x0010);
+                Top = wa.Bottom - Height - 12;
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[DualTaskbarSecondaryWindow] Loi position: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[DualTaskbarSecondaryWindow] Loi dinh vi: {ex.Message}");
         }
-    }
-
-    private static RECT? GetSecondaryMonitorRect()
-    {
-        var monitors = new List<RECT>();
-        NativeMethods.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr hMon, IntPtr hdc, ref RECT r, IntPtr data) =>
-        {
-            var mi = new MONITORINFOEX();
-            mi.cbSize = System.Runtime.InteropServices.Marshal.SizeOf<MONITORINFOEX>();
-            if (NativeMethods.GetMonitorInfo(hMon, ref mi))
-            {
-                // Nếu không phải Primary monitor (Primary có cờ 1)
-                if ((mi.dwFlags & 1) == 0)
-                {
-                    monitors.Add(mi.rcMonitor);
-                }
-            }
-            return true;
-        }, IntPtr.Zero);
-
-        return monitors.Count > 0 ? monitors[0] : null;
     }
 }

@@ -25,10 +25,10 @@
             <TextBlock x:Name="PrimaryLineText"
                        Text=""
                        FontSize="12"
-                       FontWeight="SemiBold"
                        Foreground="#F2FFFFFF"
                        FontFamily="Segoe UI, Microsoft YaHei, Aptos"
                        TextAlignment="Center"
+                       HorizontalAlignment="Center"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="720">
                 <TextBlock.Effect>
@@ -36,13 +36,14 @@
                 </TextBlock.Effect>
             </TextBlock>
 
-            <!-- Dòng 2 trên Màn hình 2 (Nếu gộp cả 2 dòng ở màn hình 2) -->
+            <!-- Dòng 2 trên Màn hình 2 -->
             <TextBlock x:Name="SecondaryLineText"
                        Text=""
-                       FontSize="10.5"
+                       FontSize="11"
                        Foreground="#FFD54F"
                        FontFamily="Segoe UI, Microsoft YaHei, Aptos"
                        TextAlignment="Center"
+                       HorizontalAlignment="Center"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="720"
                        Margin="0,1,0,0"

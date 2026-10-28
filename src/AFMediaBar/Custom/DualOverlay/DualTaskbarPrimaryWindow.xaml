@@ -20,14 +20,14 @@
     <Grid x:Name="RootLayout" Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
         <StackPanel x:Name="LinesStack" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Right">
             
-            <!-- Dòng 1: Lời dịch Tiếng Việt (hoặc Pinyin nếu chỉ bật Pinyin) -->
+            <!-- Dòng 1: Lời dịch hoặc Pinyin tùy theo thiết lập thứ tự -->
             <TextBlock x:Name="PrimaryLineText"
                        Text=""
                        FontSize="11.5"
-                       FontWeight="SemiBold"
                        Foreground="#F2FFFFFF"
                        FontFamily="Segoe UI, Microsoft YaHei, Aptos"
                        TextAlignment="Right"
+                       HorizontalAlignment="Right"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="480">
                 <TextBlock.Effect>
@@ -35,16 +35,17 @@
                 </TextBlock.Effect>
             </TextBlock>
 
-            <!-- Dòng 2: Pinyin / Phiên âm (Khi hiển thị gộp 2 dòng) -->
+            <!-- Dòng 2: Pinyin hoặc Lời dịch tùy theo thiết lập thứ tự -->
             <TextBlock x:Name="SecondaryLineText"
                        Text=""
-                       FontSize="10"
-                       Foreground="#B3FFFFFF"
+                       FontSize="11"
+                       Foreground="#FFD54F"
                        FontFamily="Segoe UI, Microsoft YaHei, Aptos"
                        TextAlignment="Right"
+                       HorizontalAlignment="Right"
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="480"
-                       Margin="0,0,0,0"
+                       Margin="0,1,0,0"
                        Visibility="Collapsed">
                 <TextBlock.Effect>
                     <DropShadowEffect x:Name="SecondaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />

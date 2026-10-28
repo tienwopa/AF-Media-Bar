@@ -38,6 +38,51 @@ public enum SecondaryTaskbarAlignment
 }
 
 /// <summary>
+/// Thứ tự hiển thị giữa Lời dịch và Pinyin khi hiển thị song song 2 dòng.
+/// </summary>
+public enum BilingualLineOrder
+{
+    /// <summary>Lời dịch Tiếng Việt ở trên, Pinyin ở dưới.</summary>
+    TranslationTop = 0,
+
+    /// <summary>Pinyin / Phiên âm ở trên, Lời dịch Tiếng Việt ở dưới.</summary>
+    RomanizationTop = 1
+}
+
+/// <summary>
+/// Độ đậm nhạt của phông chữ khi hiển thị song song 2 dòng.
+/// </summary>
+public enum BilingualWeightEmphasis
+{
+    /// <summary>Cân bằng (cả hai dòng đều có độ đậm bình thường - Normal).</summary>
+    Balanced = 0,
+
+    /// <summary>Ưu tiên Lời dịch (Lời dịch in đậm SemiBold, Pinyin bình thường).</summary>
+    EmphasisTranslation = 1,
+
+    /// <summary>Ưu tiên Pinyin (Pinyin in đậm SemiBold, Lời dịch bình thường).</summary>
+    EmphasisRomanization = 2,
+
+    /// <summary>In đậm cả hai dòng (SemiBold).</summary>
+    BothSemiBold = 3
+}
+
+/// <summary>
+/// Phạm vi áp dụng hiệu ứng chạy chữ Karaoke (Karaoke Highlight).
+/// </summary>
+public enum KaraokeTargetMode
+{
+    /// <summary>Áp dụng chạy chữ cho cả Lời dịch và Pinyin.</summary>
+    Both = 0,
+
+    /// <summary>Chỉ áp dụng cho Pinyin (khớp chuẩn xác theo từng âm tiết).</summary>
+    RomanizationOnly = 1,
+
+    /// <summary>Chỉ áp dụng cho Lời dịch Tiếng Việt.</summary>
+    TranslationOnly = 2
+}
+
+/// <summary>
 /// Cấu hình tùy biến dành riêng cho tính năng Song ngữ & Dual Taskbar Lyrics.
 /// </summary>
 public sealed class CustomSettings
@@ -60,6 +105,18 @@ public sealed class CustomSettings
     /// <summary>Căn lề vị trí hiển thị trên Màn hình thứ 2.</summary>
     public SecondaryTaskbarAlignment SecondaryAlignment { get; set; } = SecondaryTaskbarAlignment.Center;
 
+    /// <summary>Thứ tự hiển thị 2 dòng: Lời dịch trên hoặc Pinyin trên.</summary>
+    public BilingualLineOrder LineOrder { get; set; } = BilingualLineOrder.TranslationTop;
+
+    /// <summary>Cỡ chữ Lời dịch Tiếng Việt (DIP, mặc định 11.5 pt).</summary>
+    public double TranslationFontSize { get; set; } = 11.5;
+
+    /// <summary>Cỡ chữ Pinyin / Phiên âm (DIP, mặc định 11.0 pt).</summary>
+    public double RomanizationFontSize { get; set; } = 11.0;
+
+    /// <summary>Độ đậm phông chữ khi hiển thị 2 dòng.</summary>
+    public BilingualWeightEmphasis WeightEmphasis { get; set; } = BilingualWeightEmphasis.Balanced;
+
     /// <summary>Tự động điều chỉnh màu sắc chữ dựa vào màu nền Taskbar (Light/Dark mode).</summary>
     public bool AutoAdaptTaskbarColor { get; set; } = true;
 
@@ -75,13 +132,16 @@ public sealed class CustomSettings
     /// <summary>Bật/tắt hiệu ứng chạy chữ Karaoke (Karaoke Wipe Highlight) theo tiến độ bài hát.</summary>
     public bool EnableKaraokeHighlight { get; set; } = true;
 
+    /// <summary>Phạm vi áp dụng hiệu ứng chạy chữ Karaoke.</summary>
+    public KaraokeTargetMode KaraokeTarget { get; set; } = KaraokeTargetMode.Both;
+
     /// <summary>Độ lệch thời gian hiển thị Lời dịch Tiếng Việt (ms). Dương = Sớm hơn, Âm = Trễ hơn.</summary>
     public int TranslationOffsetMs { get; set; } = 0;
 
     /// <summary>Độ lệch thời gian hiển thị Pinyin / Phiên âm (ms). Dương = Sớm hơn, Âm = Trễ hơn.</summary>
     public int RomanizationOffsetMs { get; set; } = 0;
 
-    /// <summary>Cỡ chữ hiển thị (DIP).</summary>
+    /// <summary>Cỡ chữ hiển thị cơ sở cũ (tương thích ngược).</summary>
     public double FontSize { get; set; } = 11.5;
 
     /// <summary>Độ mờ đục của chữ (0.2 -> 1.0).</summary>

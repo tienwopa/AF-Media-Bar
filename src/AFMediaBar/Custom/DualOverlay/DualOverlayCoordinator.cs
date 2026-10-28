@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Windows.Threading;
 using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Models;
@@ -9,10 +11,10 @@ namespace AFMediaBar.Custom.DualOverlay;
 
 /// <summary>
 /// Điều phối logic hiển thị đa dạng vị trí cho Lời dịch và Pinyin:
-/// - Tính toán tiến độ Karaoke (chạy chữ) siêu mượt 25 FPS (40ms).
-/// - Hỗ trợ bù trừ thời gian (Time Offset sớm/trễ) độc lập cho Lời dịch và Pinyin.
+/// - Ngoại suy thời gian thực GetPosition để hiệu ứng Karaoke chạy chữ siêu mượt 25 FPS (40ms).
+/// - Tính toán tiến độ Karaoke riêng biệt cho Lời dịch và từng âm tiết Pinyin.
+/// - Hỗ trợ tùy chỉnh thứ tự dòng (Lời dịch trên hay Pinyin trên).
 /// - Tự động phát hiện màn hình thứ 2 và gộp an toàn về Taskbar chính nếu chỉ có 1 màn hình.
-/// - Đồng bộ bộ nhớ đệm giữ nguyên Pinyin không bị biến mất.
 /// </summary>
 public sealed class DualOverlayCoordinator : IDisposable
 {
@@ -41,7 +43,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         _secondaryWindow = secondaryWindow;
         _settingsManager = settingsManager;
 
-        // Chu kỳ 40ms (~25 FPS) để hiệu ứng Karaoke chạy chữ mượt mà nhất
+        // Chu kỳ 40ms (~25 FPS) để hiệu ứng Karaoke quét chữ mượt mà nhất
         _syncTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromMilliseconds(40)
@@ -113,7 +115,10 @@ public sealed class DualOverlayCoordinator : IDisposable
             return;
         }
 
-        var currentSeconds = snapshot.Position;
+        // Lấy vị trí thời gian thực ngoại suy theo mili-giây (TaskbarExperiencePolicy.GetPosition)
+        var now = DateTimeOffset.Now;
+        var currentSeconds = TaskbarExperiencePolicy.GetPosition(snapshot, now);
+
         var lines = _activeDocument.Lines;
         if (lines.Count == 0)
         {
@@ -135,7 +140,7 @@ public sealed class DualOverlayCoordinator : IDisposable
         }
 
         string? translation = transLine?.Translation;
-        double transProgress = transLine != null ? CalculateKaraokeProgress(transLine, transSeconds) : 1.0;
+        double transProgress = transLine != null ? CalculateTranslationProgress(transLine, transSeconds) : 1.0;
 
         // Bỏ qua dịch nếu bài hát là Tiếng Việt
         if (_isCurrentTrackVietnamese && settings.AutoSkipVietnamese)
@@ -148,18 +153,18 @@ public sealed class DualOverlayCoordinator : IDisposable
         {
             pinyin = PinyinGeneratorService.ToPinyin(pinyinLine.Text);
         }
-        double pinyinProgress = pinyinLine != null ? CalculateKaraokeProgress(pinyinLine, pinyinSeconds) : 1.0;
+        double pinyinProgress = pinyinLine != null ? CalculatePinyinProgress(pinyinLine, pinyin, pinyinSeconds) : 1.0;
 
         // Điều phối nội dung tới Taskbar chính hoặc Màn hình 2
         DispatchContent(translation, transProgress, pinyin, pinyinProgress, settings);
     }
 
     /// <summary>
-    /// Tính toán tiến độ quét Karaoke (từ 0.0 đến 1.0) dựa trên âm tiết (Words) hoặc thời lượng câu.
+    /// Tính toán tiến độ Karaoke cho dòng Pinyin khớp chuẩn xác với từng âm tiết tiếng Trung.
     /// </summary>
-    private static double CalculateKaraokeProgress(LyricLine line, double currentSeconds)
+    private static double CalculatePinyinProgress(LyricLine line, string? pinyin, double currentSeconds)
     {
-        if (currentSeconds <= line.Start)
+        if (string.IsNullOrWhiteSpace(pinyin) || currentSeconds <= line.Start)
         {
             return 0.0;
         }
@@ -168,42 +173,84 @@ public sealed class DualOverlayCoordinator : IDisposable
             return 1.0;
         }
 
-        // Nếu bài hát có dữ liệu từng từ/âm tiết (SyllableSynced / QRC / YRC)
+        // Nếu câu hát có danh sách âm tiết/từ (Words)
         if (line.Words != null && line.Words.Count > 0)
         {
             var words = line.Words;
-            int n = words.Count;
+            int wordCount = words.Count;
+            var pinyinWords = pinyin.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            if (currentSeconds <= words[0].Start)
+            if (pinyinWords.Length == wordCount && pinyin.Length > 0)
             {
-                return 0.0;
-            }
-            if (currentSeconds >= words[^1].End)
-            {
-                return 1.0;
-            }
+                int totalPinyinChars = pinyin.Length;
+                double sungPinyinChars = 0;
+                int currentWordCharIndex = 0;
 
-            for (int i = 0; i < n; i++)
-            {
-                var w = words[i];
-                if (currentSeconds >= w.Start && currentSeconds < w.End)
+                for (int i = 0; i < wordCount; i++)
                 {
-                    double wDur = Math.Max(0.01, w.End - w.Start);
-                    double wFrac = Math.Clamp((currentSeconds - w.Start) / wDur, 0.0, 1.0);
-                    return (i + wFrac) / n;
-                }
-                if (currentSeconds >= w.End)
-                {
-                    if (i == n - 1 || currentSeconds < words[i + 1].Start)
+                    var w = words[i];
+                    string pw = pinyinWords[i];
+
+                    int pwIndex = pinyin.IndexOf(pw, currentWordCharIndex, StringComparison.Ordinal);
+                    if (pwIndex < 0) pwIndex = currentWordCharIndex;
+                    int pwEnd = pwIndex + pw.Length;
+
+                    if (currentSeconds >= w.End)
                     {
-                        return (i + 1.0) / n;
+                        sungPinyinChars = pwEnd;
+                        currentWordCharIndex = pwEnd;
+                        continue;
+                    }
+
+                    if (currentSeconds > w.Start)
+                    {
+                        double wDur = Math.Max(0.01, w.End - w.Start);
+                        double wFrac = Math.Clamp((currentSeconds - w.Start) / wDur, 0.0, 1.0);
+                        sungPinyinChars = pwIndex + (pw.Length * wFrac);
+                        break;
+                    }
+
+                    sungPinyinChars = pwIndex;
+                    break;
+                }
+
+                return Math.Clamp(sungPinyinChars / totalPinyinChars, 0.0, 1.0);
+            }
+            else
+            {
+                for (int i = 0; i < wordCount; i++)
+                {
+                    var w = words[i];
+                    if (currentSeconds >= w.Start && currentSeconds < w.End)
+                    {
+                        double wDur = Math.Max(0.01, w.End - w.Start);
+                        double wFrac = Math.Clamp((currentSeconds - w.Start) / wDur, 0.0, 1.0);
+                        return Math.Clamp((i + wFrac) / wordCount, 0.0, 1.0);
+                    }
+                    if (currentSeconds >= w.End)
+                    {
+                        if (i == wordCount - 1 || currentSeconds < words[i + 1].Start)
+                        {
+                            return Math.Clamp((i + 1.0) / wordCount, 0.0, 1.0);
+                        }
                     }
                 }
             }
         }
 
-        // Dự phòng: Nội suy mượt theo tỷ lệ thời lượng dòng hát (LineSynced)
-        double lineDuration = Math.Max(0.5, line.End - line.Start);
+        double lineDuration = Math.Max(0.3, line.End - line.Start);
+        return Math.Clamp((currentSeconds - line.Start) / lineDuration, 0.0, 1.0);
+    }
+
+    /// <summary>
+    /// Tính toán tiến độ Karaoke cho Lời dịch Tiếng Việt (chạy mượt theo thời gian câu hát).
+    /// </summary>
+    private static double CalculateTranslationProgress(LyricLine line, double currentSeconds)
+    {
+        if (currentSeconds <= line.Start) return 0.0;
+        if (currentSeconds >= line.End) return 1.0;
+
+        double lineDuration = Math.Max(0.3, line.End - line.Start);
         return Math.Clamp((currentSeconds - line.Start) / lineDuration, 0.0, 1.0);
     }
 
@@ -240,30 +287,52 @@ public sealed class DualOverlayCoordinator : IDisposable
 
         string? primaryLine1 = null;
         string? primaryLine2 = null;
+        bool isPrimaryPinyin = false;
         double primaryProgress1 = 1.0;
         double primaryProgress2 = 1.0;
 
-        if (showTransOnPrimary && !string.IsNullOrWhiteSpace(translation))
+        bool hasTrans = showTransOnPrimary && !string.IsNullOrWhiteSpace(translation);
+        bool hasPinyin = showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin);
+
+        if (hasTrans && hasPinyin)
+        {
+            if (settings.LineOrder == BilingualLineOrder.RomanizationTop)
+            {
+                // Pinyin ở trên, Lời dịch ở dưới
+                primaryLine1 = pinyin;
+                primaryProgress1 = pinyinProgress;
+                primaryLine2 = translation;
+                primaryProgress2 = transProgress;
+                isPrimaryPinyin = true;
+            }
+            else
+            {
+                // Lời dịch ở trên, Pinyin ở dưới (Mặc định)
+                primaryLine1 = translation;
+                primaryProgress1 = transProgress;
+                primaryLine2 = pinyin;
+                primaryProgress2 = pinyinProgress;
+                isPrimaryPinyin = false;
+            }
+        }
+        else if (hasTrans)
         {
             primaryLine1 = translation;
             primaryProgress1 = transProgress;
-            if (showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin))
-            {
-                primaryLine2 = pinyin;
-                primaryProgress2 = pinyinProgress;
-            }
+            isPrimaryPinyin = false;
         }
-        else if (showPinyinOnPrimary && !string.IsNullOrWhiteSpace(pinyin))
+        else if (hasPinyin)
         {
             primaryLine1 = pinyin;
             primaryProgress1 = pinyinProgress;
+            isPrimaryPinyin = true;
         }
 
         if (!string.IsNullOrWhiteSpace(primaryLine1))
         {
             _primaryWindow.UpdateContent(
                 primaryLine1, primaryLine2,
-                isPrimaryPinyin: (primaryLine1 == pinyin),
+                isPrimaryPinyin: isPrimaryPinyin,
                 primaryProgress: primaryProgress1,
                 secondaryProgress: primaryProgress2);
         }
@@ -283,30 +352,50 @@ public sealed class DualOverlayCoordinator : IDisposable
 
             string? secLine1 = null;
             string? secLine2 = null;
+            bool isSecPinyin = false;
             double secProgress1 = 1.0;
             double secProgress2 = 1.0;
 
-            if (showTransOnSec && !string.IsNullOrWhiteSpace(translation))
+            bool hasSecTrans = showTransOnSec && !string.IsNullOrWhiteSpace(translation);
+            bool hasSecPinyin = showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin);
+
+            if (hasSecTrans && hasSecPinyin)
+            {
+                if (settings.LineOrder == BilingualLineOrder.RomanizationTop)
+                {
+                    secLine1 = pinyin;
+                    secProgress1 = pinyinProgress;
+                    secLine2 = translation;
+                    secProgress2 = transProgress;
+                    isSecPinyin = true;
+                }
+                else
+                {
+                    secLine1 = translation;
+                    secProgress1 = transProgress;
+                    secLine2 = pinyin;
+                    secProgress2 = pinyinProgress;
+                    isSecPinyin = false;
+                }
+            }
+            else if (hasSecTrans)
             {
                 secLine1 = translation;
                 secProgress1 = transProgress;
-                if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
-                {
-                    secLine2 = pinyin;
-                    secProgress2 = pinyinProgress;
-                }
+                isSecPinyin = false;
             }
-            else if (showPinyinOnSec && !string.IsNullOrWhiteSpace(pinyin))
+            else if (hasSecPinyin)
             {
                 secLine1 = pinyin;
                 secProgress1 = pinyinProgress;
+                isSecPinyin = true;
             }
 
             if (!string.IsNullOrWhiteSpace(secLine1))
             {
                 _secondaryWindow.UpdateContent(
                     secLine1, secLine2,
-                    isPrimaryPinyin: (secLine1 == pinyin),
+                    isPrimaryPinyin: isSecPinyin,
                     primaryProgress: secProgress1,
                     secondaryProgress: secProgress2);
             }

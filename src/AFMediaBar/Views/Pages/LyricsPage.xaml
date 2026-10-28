@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:components="clr-namespace:AFMediaBar.Components"
@@ -453,23 +453,87 @@
                                              Click="CustomAutoAdaptColorSwitch_Click" />
                         </components:SettingsRow>
 
-                        <!-- 4. Cỡ chữ lời bài hát -->
+                        <!-- 4. Thứ tự dòng hiển thị song song -->
                         <components:SettingsRow
-                            Description="Tùy chỉnh kích thước cỡ chữ hiển thị của lời dịch và pinyin"
-                            Icon="{ui:SymbolIcon TextFontSize24}"
-                            Title="Cỡ chữ hiển thị">
-                            <ComboBox x:Name="CustomFontSizeCombo"
-                                      SelectionChanged="CustomFontSizeCombo_SelectionChanged"
+                            Description="Lựa chọn dòng nào ở trên, dòng nào ở dưới khi hiển thị song song 2 dòng"
+                            Icon="{ui:SymbolIcon ArrowSort24}"
+                            Title="Thứ tự dòng hiển thị">
+                            <ComboBox x:Name="CustomLineOrderCombo"
+                                      SelectionChanged="CustomLineOrderCombo_SelectionChanged"
                                       Width="280">
-                                <ComboBoxItem Content="Nhỏ (10 pt)" Tag="10.0" />
+                                <ComboBoxItem Content="Lời dịch ở trên, Pinyin ở dưới (Mặc định)" Tag="0" />
+                                <ComboBoxItem Content="Pinyin ở trên, Lời dịch ở dưới" Tag="1" />
+                            </ComboBox>
+                        </components:SettingsRow>
+
+                        <!-- 5. Cỡ chữ Lời dịch Tiếng Việt -->
+                        <components:SettingsRow
+                            Description="Tùy chỉnh kích thước cỡ chữ cho bản dịch Tiếng Việt (chống lấn át Pinyin)"
+                            Icon="{ui:SymbolIcon TextFontSize24}"
+                            Title="Cỡ chữ Lời dịch Tiếng Việt">
+                            <ComboBox x:Name="CustomTransFontSizeCombo"
+                                      SelectionChanged="CustomTransFontSizeCombo_SelectionChanged"
+                                      Width="280">
+                                <ComboBoxItem Content="9 pt (Rất nhỏ)" Tag="9.0" />
+                                <ComboBoxItem Content="10 pt (Nhỏ)" Tag="10.0" />
+                                <ComboBoxItem Content="10.5 pt" Tag="10.5" />
                                 <ComboBoxItem Content="11 pt" Tag="11.0" />
-                                <ComboBoxItem Content="Tiêu chuẩn (11.5 pt)" Tag="11.5" />
+                                <ComboBoxItem Content="11.5 pt (Tiêu chuẩn)" Tag="11.5" />
                                 <ComboBoxItem Content="12 pt" Tag="12.0" />
-                                <ComboBoxItem Content="13 pt" Tag="13.0" />
-                                <ComboBoxItem Content="Lớn (14 pt)" Tag="14.0" />
+                                <ComboBoxItem Content="13 pt (Lớn)" Tag="13.0" />
+                                <ComboBoxItem Content="14 pt" Tag="14.0" />
                                 <ComboBoxItem Content="15 pt" Tag="15.0" />
-                                <ComboBoxItem Content="Rất lớn (16 pt)" Tag="16.0" />
-                                <ComboBoxItem Content="Cực lớn (18 pt)" Tag="18.0" />
+                                <ComboBoxItem Content="16 pt (Rất lớn)" Tag="16.0" />
+                            </ComboBox>
+                        </components:SettingsRow>
+
+                        <!-- 6. Cỡ chữ Pinyin / Phiên âm -->
+                        <components:SettingsRow
+                            Description="Tùy chỉnh kích thước cỡ chữ cho Pinyin để rõ nét và tương xứng với lời Việt"
+                            Icon="{ui:SymbolIcon TextFontSize24}"
+                            Title="Cỡ chữ Pinyin / Phiên âm">
+                            <ComboBox x:Name="CustomPinyinFontSizeCombo"
+                                      SelectionChanged="CustomPinyinFontSizeCombo_SelectionChanged"
+                                      Width="280">
+                                <ComboBoxItem Content="9 pt (Rất nhỏ)" Tag="9.0" />
+                                <ComboBoxItem Content="10 pt (Nhỏ)" Tag="10.0" />
+                                <ComboBoxItem Content="10.5 pt" Tag="10.5" />
+                                <ComboBoxItem Content="11 pt (Tiêu chuẩn)" Tag="11.0" />
+                                <ComboBoxItem Content="11.5 pt" Tag="11.5" />
+                                <ComboBoxItem Content="12 pt" Tag="12.0" />
+                                <ComboBoxItem Content="13 pt (Lớn)" Tag="13.0" />
+                                <ComboBoxItem Content="14 pt" Tag="14.0" />
+                                <ComboBoxItem Content="15 pt" Tag="15.0" />
+                                <ComboBoxItem Content="16 pt (Rất lớn)" Tag="16.0" />
+                            </ComboBox>
+                        </components:SettingsRow>
+
+                        <!-- 7. Độ đậm phông chữ (Nhấn mạnh) -->
+                        <components:SettingsRow
+                            Description="Lựa chọn dòng chữ được in đậm khi hiển thị song song 2 dòng"
+                            Icon="{ui:SymbolIcon TextBold24}"
+                            Title="Độ đậm phông chữ">
+                            <ComboBox x:Name="CustomFontWeightCombo"
+                                      SelectionChanged="CustomFontWeightCombo_SelectionChanged"
+                                      Width="280">
+                                <ComboBoxItem Content="Cân bằng (Độ đậm như nhau - Mặc định)" Tag="0" />
+                                <ComboBoxItem Content="Ưu tiên Lời dịch (Lời dịch in đậm)" Tag="1" />
+                                <ComboBoxItem Content="Ưu tiên Pinyin (Pinyin in đậm)" Tag="2" />
+                                <ComboBoxItem Content="In đậm cả hai dòng" Tag="3" />
+                            </ComboBox>
+                        </components:SettingsRow>
+
+                        <!-- 8. Phạm vi áp dụng chạy chữ Karaoke -->
+                        <components:SettingsRow
+                            Description="Chọn thành phần được áp dụng hiệu ứng chạy chữ Karaoke theo nhịp hát"
+                            Icon="{ui:SymbolIcon MusicNote224}"
+                            Title="Áp dụng chạy chữ Karaoke">
+                            <ComboBox x:Name="CustomKaraokeTargetCombo"
+                                      SelectionChanged="CustomKaraokeTargetCombo_SelectionChanged"
+                                      Width="280">
+                                <ComboBoxItem Content="Áp dụng cho cả Lời dịch và Pinyin" Tag="0" />
+                                <ComboBoxItem Content="Chỉ áp dụng cho Pinyin (Chuẩn xác theo từng từ)" Tag="1" />
+                                <ComboBoxItem Content="Chỉ áp dụng cho Lời dịch" Tag="2" />
                             </ComboBox>
                         </components:SettingsRow>
 
