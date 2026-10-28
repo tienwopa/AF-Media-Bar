@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:effects="clr-namespace:AFMediaBar.Custom.Effects"
         mc:Ignorable="d"
         Title="DualTaskbarPrimaryWindow"
         WindowStyle="None"
@@ -18,6 +19,13 @@
         Visibility="Collapsed">
 
     <Grid x:Name="RootLayout" Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Stretch" Margin="0,0,10,0">
+        <!-- Canvas hiệu ứng nền hạt nhẹ nhàng phía sau lời bài hát -->
+        <effects:LyricsBackgroundEffectCanvas x:Name="BackgroundEffectCanvas"
+                                              TargetScope="DualTaskbarOnly"
+                                              HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch"
+                                              IsHitTestVisible="False" />
+
         <StackPanel x:Name="LinesStack" Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Right" RenderTransformOrigin="0.5,0.5">
             <StackPanel.RenderTransform>
                 <TransformGroup>
@@ -37,7 +45,7 @@
                        TextTrimming="CharacterEllipsis"
                        MaxWidth="480">
                 <TextBlock.Effect>
-                    <DropShadowEffect x:Name="PrimaryShadow" Color="#000000" BlurRadius="4" ShadowDepth="1" Opacity="0.6" />
+                    <DropShadowEffect x:Name="PrimaryShadow" Color="#000000" BlurRadius="3" ShadowDepth="1" Opacity="0.5" />
                 </TextBlock.Effect>
             </TextBlock>
 

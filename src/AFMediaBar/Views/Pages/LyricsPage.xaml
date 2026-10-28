@@ -621,6 +621,86 @@
                                 </components:SettingsRow>
 
                                 <components:SettingsRow
+                                    Description="Hiệu ứng hạt rơi, bay bổng phía sau khu vực lời bài hát (Zero CPU khi dừng phát)"
+                                    Icon="{ui:SymbolIcon Sparkle24}"
+                                    IsNested="True"
+                                    Title="Hiệu ứng hạt nền (Background Effect)">
+                                    <ComboBox x:Name="CustomBackgroundEffectCombo"
+                                              SelectionChanged="CustomBackgroundEffectCombo_SelectionChanged"
+                                              Width="260">
+                                        <ComboBoxItem Content="Tắt hiệu ứng nền (Mặc định)" Tag="0" />
+                                        <ComboBoxItem Content="🌸 Hoa anh đào rơi &amp; bay (Sakura)" Tag="1" />
+                                        <ComboBoxItem Content="❄️ Tuyết rơi êm đềm (Snow)" Tag="2" />
+                                        <ComboBoxItem Content="🌧️ Mưa rơi xiên nhanh (Rain)" Tag="3" />
+                                        <ComboBoxItem Content="🍁 Lá thu rơi chao liệng (Autumn Leaves)" Tag="4" />
+                                        <ComboBoxItem Content="💡 Đom đóm phát sáng (Fireflies)" Tag="5" />
+                                        <ComboBoxItem Content="✨ Bụi sao lấp lánh (Starfield)" Tag="6" />
+                                        <ComboBoxItem Content="🫧 Bong bóng nổi bồng bềnh (Bubbles)" Tag="7" />
+                                        <ComboBoxItem Content="🌌 Dải cực quang mềm mại (Aurora Wave)" Tag="8" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <StackPanel x:Name="CustomBackgroundEffectSubPanel">
+                                    <components:SettingsRow
+                                        Description="Chọn khu vực áp dụng hiệu ứng hạt nền"
+                                        Icon="{ui:SymbolIcon Grid24}"
+                                        IsNested="True"
+                                        Title="Phạm vi hiển thị hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundScopeCombo"
+                                                  SelectionChanged="CustomBackgroundScopeCombo_SelectionChanged"
+                                                  Width="260">
+                                            <ComboBoxItem Content="Cả Lời gốc Media Bar &amp; Lời dịch/Pinyin" Tag="0" />
+                                            <ComboBoxItem Content="Chỉ khu vực Lời dịch &amp; Pinyin" Tag="1" />
+                                            <ComboBoxItem Content="Chỉ khu vực Lời gốc Media Bar" Tag="2" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Mật độ số lượng hạt chuyển động trong khung hiển thị"
+                                        Icon="{ui:SymbolIcon Sparkle24}"
+                                        IsNested="True"
+                                        Title="Mật độ hạt hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundDensityCombo"
+                                                  SelectionChanged="CustomBackgroundDensityCombo_SelectionChanged"
+                                                  Width="260">
+                                            <ComboBoxItem Content="Thưa thớt, nhẹ nhàng (Tiết kiệm tài nguyên)" Tag="0" />
+                                            <ComboBoxItem Content="Vừa phải, hài hòa (Mặc định)" Tag="1" />
+                                            <ComboBoxItem Content="Dày đặc, sống động" Tag="2" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Tốc độ chuyển động bay, rơi của các hạt hiệu ứng"
+                                        Icon="{ui:SymbolIcon TopSpeed24}"
+                                        IsNested="True"
+                                        Title="Tốc độ hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundSpeedCombo"
+                                                  SelectionChanged="CustomBackgroundSpeedCombo_SelectionChanged"
+                                                  Width="260">
+                                            <ComboBoxItem Content="Chậm rãi, êm dịu" Tag="0" />
+                                            <ComboBoxItem Content="Tiêu chuẩn (Mặc định)" Tag="1" />
+                                            <ComboBoxItem Content="Nhanh, sinh động" Tag="2" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+
+                                    <components:SettingsRow
+                                        Description="Điều chỉnh độ mờ đục của hạt hiệu ứng để không làm chìm chữ lời bài hát"
+                                        Icon="{ui:SymbolIcon Eye24}"
+                                        IsNested="True"
+                                        Title="Độ trong suốt hiệu ứng">
+                                        <ComboBox x:Name="CustomBackgroundOpacityCombo"
+                                                  SelectionChanged="CustomBackgroundOpacityCombo_SelectionChanged"
+                                                  Width="260">
+                                            <ComboBoxItem Content="Mờ dịu (35%)" Tag="0.35" />
+                                            <ComboBoxItem Content="Nhẹ nhàng (50%)" Tag="0.50" />
+                                            <ComboBoxItem Content="Hài hòa (65% - Mặc định)" Tag="0.65" />
+                                            <ComboBoxItem Content="Rõ nét (80%)" Tag="0.80" />
+                                            <ComboBoxItem Content="Đậm đà (95%)" Tag="0.95" />
+                                        </ComboBox>
+                                    </components:SettingsRow>
+                                </StackPanel>
+
+                                <components:SettingsRow
                                     Description="Bật hiệu ứng chạy màu chữ Karaoke theo giai điệu bài hát"
                                     Icon="{ui:SymbolIcon MusicNote224}"
                                     IsNested="True"

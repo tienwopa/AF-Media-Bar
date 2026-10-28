@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using AFMediaBar.Classes.Interop;
 using AFMediaBar.Classes.Services;
 using AFMediaBar.Custom.Settings;
@@ -73,29 +74,17 @@ public partial class DualTaskbarPrimaryWindow : Window
     private void ResolveColors(bool isPrimaryPinyin, out Color primaryColor, out Color secondaryColor, out bool isLight)
     {
         var settings = _settingsManager.Current;
-        isLight = false;
+        isLight = TaskbarThemeHelper.IsTaskbarLight();
 
         string transHex = settings.TranslationColor;
         string pinyinHex = settings.RomanizationColor;
 
         if (settings.AutoAdaptTaskbarColor)
         {
-            isLight = TaskbarThemeHelper.IsTaskbarLight();
             if (isLight)
             {
                 transHex = "#18181B";
                 pinyinHex = "#374151";
-
-                if (PrimaryShadow != null)
-                {
-                    PrimaryShadow.Color = Colors.White;
-                    PrimaryShadow.Opacity = 0.4;
-                }
-                if (SecondaryShadow != null)
-                {
-                    SecondaryShadow.Color = Colors.White;
-                    SecondaryShadow.Opacity = 0.3;
-                }
             }
             else
             {
@@ -109,38 +98,6 @@ public partial class DualTaskbarPrimaryWindow : Window
                 {
                     pinyinHex = "#FFD54F";
                 }
-
-                if (PrimaryShadow != null)
-                {
-                    PrimaryShadow.Color = Colors.Black;
-                    PrimaryShadow.Opacity = 0.6;
-                }
-                if (SecondaryShadow != null)
-                {
-                    SecondaryShadow.Color = Colors.Black;
-                    SecondaryShadow.Opacity = 0.5;
-                }
-            }
-        }
-        else
-        {
-            bool isTransBlack = transHex.Equals("#000000", StringComparison.OrdinalIgnoreCase) ||
-                                transHex.Equals("#18181B", StringComparison.OrdinalIgnoreCase);
-            if (isTransBlack)
-            {
-                if (PrimaryShadow != null)
-                {
-                    PrimaryShadow.Color = Colors.White;
-                    PrimaryShadow.Opacity = 0.3;
-                }
-            }
-            else
-            {
-                if (PrimaryShadow != null)
-                {
-                    PrimaryShadow.Color = Colors.Black;
-                    PrimaryShadow.Opacity = 0.6;
-                }
             }
         }
 
@@ -149,6 +106,43 @@ public partial class DualTaskbarPrimaryWindow : Window
 
         primaryColor = ParseColor(pColorHex, Colors.White);
         secondaryColor = ParseColor(sColorHex, Color.FromRgb(255, 213, 79));
+
+        // Cập nhật hiệu ứng bóng đổ (DropShadow) đồng bộ và chính xác dựa trên màu chữ từng dòng
+        UpdateTextShadow(PrimaryShadow, primaryColor);
+        UpdateTextShadow(SecondaryShadow, secondaryColor);
+    }
+
+    private static void UpdateTextShadow(DropShadowEffect? shadow, Color textColor)
+    {
+        if (shadow == null) return;
+
+        bool isDark = IsColorDark(textColor);
+        if (isDark)
+        {
+            // Chữ màu tối (như đen #18181B):
+            // Tuyệt đối KHÔNG dùng bóng đen vì bóng đen bị lem/nhòe vào nét chữ, gây hiện tượng in đậm giả tạo.
+            // Dùng bóng sáng trắng rất nhẹ để chữ luôn sắc nét và giữ nguyên độ thanh mảnh.
+            shadow.Color = Colors.White;
+            shadow.Opacity = 0.25;
+            shadow.BlurRadius = 2.0;
+            shadow.ShadowDepth = 0.0;
+        }
+        else
+        {
+            // Chữ màu sáng (trắng #FFFFFF, vàng #FFD54F...):
+            // Dùng bóng đen tiêu chuẩn để chữ nổi bật trên nền taskbar sáng hoặc hình nền.
+            shadow.Color = Colors.Black;
+            shadow.Opacity = 0.5;
+            shadow.BlurRadius = 3.0;
+            shadow.ShadowDepth = 1.0;
+        }
+    }
+
+    private static bool IsColorDark(Color color)
+    {
+        // Độ sáng cảm nhận (Perceived Luminance) chuẩn ITU-R BT.601
+        double luminance = 0.299 * color.R + 0.587 * color.G + 0.114 * color.B;
+        return luminance < 128.0;
     }
 
     private static Color ParseColor(string hex, Color fallback)
@@ -211,6 +205,7 @@ public partial class DualTaskbarPrimaryWindow : Window
         {
             if (string.IsNullOrWhiteSpace(primaryText))
             {
+                BackgroundEffectCanvas.IsActive = false;
                 Visibility = Visibility.Collapsed;
                 return;
             }
@@ -339,6 +334,7 @@ public partial class DualTaskbarPrimaryWindow : Window
                 : new SolidColorBrush(sCol);
 
             PrimaryLineText.Text = primaryText;
+            BackgroundEffectCanvas.IsActive = true;
             Visibility = Visibility.Visible;
             EnsureDockedAndPositioned();
 
@@ -354,6 +350,7 @@ public partial class DualTaskbarPrimaryWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
+            BackgroundEffectCanvas.IsActive = false;
             _currentPrimaryText = string.Empty;
             _currentSecondaryText = null;
             Visibility = Visibility.Collapsed;

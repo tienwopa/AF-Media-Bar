@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:AFMediaBar.Components"
+             xmlns:effects="clr-namespace:AFMediaBar.Custom.Effects"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              mc:Ignorable="d"
              FontFamily="{DynamicResource AppTextFontFamily}"
@@ -295,6 +296,12 @@
                             </StackPanel>
 
                             <Grid x:Name="SongLyricsPanel" Opacity="0" IsHitTestVisible="False" ClipToBounds="True">
+                                <!-- Hiệu ứng nền hạt cho khu vực Lời bài hát gốc trên Media Bar -->
+                                <effects:LyricsBackgroundEffectCanvas x:Name="MediaBarLyricsBackgroundEffect"
+                                                                      TargetScope="MediaBarOriginalOnly"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      VerticalAlignment="Stretch"
+                                                                      IsHitTestVisible="False" />
                                 <!--
                                     最小 1×1：WebView2 的合成控件在 0（或负数）尺寸的 SizeChanged 里会抛 ArgumentException
                                     （GraphicsItemD3DImage.UpdateSize），媒体栏长度收缩到零时会让整个应用闪退；把最小尺寸钉在

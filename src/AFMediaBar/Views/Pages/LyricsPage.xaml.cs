@@ -80,6 +80,15 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
             CustomPrimaryAlignCombo.SelectedIndex = (int)settings.PrimaryAlignment;
             CustomAnimationModeCombo.SelectedIndex = (int)settings.AnimationMode;
 
+            CustomBackgroundEffectCombo.SelectedIndex = (int)settings.BackgroundEffect;
+            CustomBackgroundScopeCombo.SelectedIndex = (int)settings.BackgroundEffectScope;
+            CustomBackgroundDensityCombo.SelectedIndex = (int)settings.BackgroundEffectDensity;
+            CustomBackgroundSpeedCombo.SelectedIndex = (int)settings.BackgroundEffectSpeed;
+            SelectOpacityInCombo(CustomBackgroundOpacityCombo, settings.BackgroundEffectOpacity);
+            CustomBackgroundEffectSubPanel.Visibility = settings.BackgroundEffect == LyricsBackgroundEffectType.None
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
             SelectMaxWidthInCombo(CustomPrimaryMaxWidthCombo, settings.PrimaryMaxWidth);
 
             TranslationOffsetMs = settings.TranslationOffsetMs;
@@ -172,6 +181,23 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
             }
         }
         if (combo.Items.Count > 0 && combo.SelectedIndex < 0) combo.SelectedIndex = 0;
+    }
+
+    private static void SelectOpacityInCombo(System.Windows.Controls.ComboBox combo, double opacity)
+    {
+        string target = opacity.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        string shortTarget = opacity.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+        for (int i = 0; i < combo.Items.Count; i++)
+        {
+            if (combo.Items[i] is System.Windows.Controls.ComboBoxItem item && item.Tag is string tagStr &&
+                (string.Equals(tagStr, target, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(tagStr, shortTarget, StringComparison.OrdinalIgnoreCase)))
+            {
+                combo.SelectedIndex = i;
+                return;
+            }
+        }
+        if (combo.Items.Count > 2) combo.SelectedIndex = 2; // Default 65%
     }
 
     private void CustomEnableBilingualSwitch_Click(object sender, RoutedEventArgs e)
@@ -288,6 +314,64 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         if (CustomAnimationModeCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.AnimationMode = (LyricsAnimationMode)CustomAnimationModeCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomBackgroundEffectCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomBackgroundEffectCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.BackgroundEffect = (LyricsBackgroundEffectType)val;
+            CustomBackgroundEffectSubPanel.Visibility = CustomSettings.Current.BackgroundEffect == LyricsBackgroundEffectType.None
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomBackgroundScopeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomBackgroundScopeCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.BackgroundEffectScope = (LyricsEffectScope)val;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomBackgroundDensityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomBackgroundDensityCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.BackgroundEffectDensity = (LyricsEffectDensity)val;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomBackgroundSpeedCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomBackgroundSpeedCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            int.TryParse(item.Tag?.ToString(), out int val))
+        {
+            CustomSettings.Current.BackgroundEffectSpeed = (LyricsEffectSpeed)val;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomBackgroundOpacityCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomBackgroundOpacityCombo.SelectedItem is System.Windows.Controls.ComboBoxItem item &&
+            double.TryParse(item.Tag?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double val))
+        {
+            CustomSettings.Current.BackgroundEffectOpacity = val;
             CustomSettings.SaveSettings();
         }
     }

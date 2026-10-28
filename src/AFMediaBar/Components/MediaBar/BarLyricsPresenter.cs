@@ -311,6 +311,7 @@ public partial class TaskBarMediaControl
                 // Hidden keeps the 1x1 layout guard while making the WPF view genuinely invisible to WebView2.
                 webView.Visibility = Visibility.Hidden;
                 _owner.SongLyricsPanel.Opacity = 0;
+                _owner.MediaBarLyricsBackgroundEffect.IsActive = false;
                 _owner.SongMetadataPanel.Visibility = Visibility.Visible;
                 if (_owner._backgroundPruneLevel >= MemoryPruneLevel.DisplayOff && !_lyricsSuspendRequested)
                 {
@@ -408,6 +409,7 @@ public partial class TaskBarMediaControl
             // host until IsReady would prevent navigation from completing on some systems.
             _owner.SongLyricsPanel.Opacity = showWebLyrics ? 1 : 0;
             _owner.SongLyricsPanel.IsHitTestVisible = showWebLyrics;
+            _owner.MediaBarLyricsBackgroundEffect.IsActive = showWebLyrics && _owner._isConnected && _owner._snapshot.IsPlaying;
             // The web engine decides whether a frame is a progress patch or a line transition.
             // Sending false on every 50 ms progress frame interrupts its in-flight roll animation.
             // 设置变更链路（简繁转换方向、日语读音标注开关等）带 skipUnchangedContent：可见内容一字未变时
@@ -616,6 +618,7 @@ public partial class TaskBarMediaControl
                 {
                     _owner.SongLyricsPanel.Opacity = 0;
                     _owner.SongLyricsPanel.IsHitTestVisible = false;
+                    _owner.MediaBarLyricsBackgroundEffect.IsActive = false;
                     _owner.SongMetadataPanel.Visibility = Visibility.Visible;
                 }
             }

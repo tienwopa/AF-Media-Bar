@@ -1879,6 +1879,7 @@ namespace AFMediaBar.Components
                         SongMetadataPanel.Visibility = Visibility.Visible;
                         SongLyricsPanel.Opacity = 0;
                         SongLyricsPanel.IsHitTestVisible = false;
+                        MediaBarLyricsBackgroundEffect.IsActive = false;
                         _lyrics.UpdateWebLyricsPresentation(allowTransition: false);
                         SongArtist.Text = string.Empty;
                         SongInfoStackPanel.Visibility = Visibility.Collapsed;

@@ -119,6 +119,84 @@ public enum LyricsAnimationMode
 }
 
 /// <summary>
+/// Kiểu hiệu ứng hạt nền hiển thị phía sau lời bài hát.
+/// </summary>
+public enum LyricsBackgroundEffectType
+{
+    /// <summary>Tắt hiệu ứng nền (Mặc định).</summary>
+    None = 0,
+
+    /// <summary>Hoa anh đào rơi &amp; bay lượn (Sakura Petals).</summary>
+    Sakura = 1,
+
+    /// <summary>Tuyết rơi êm đềm (Snow Falling).</summary>
+    Snow = 2,
+
+    /// <summary>Mưa rơi xiên nhanh (Rain Falling).</summary>
+    Rain = 3,
+
+    /// <summary>Lá thu vàng / phong đỏ rơi chao liệng (Autumn Leaves).</summary>
+    AutumnLeaves = 4,
+
+    /// <summary>Đom đóm mùa hè phát sáng lung linh (Glowing Fireflies).</summary>
+    Fireflies = 5,
+
+    /// <summary>Bụi sao tinh tú lấp lánh (Twinkling Starfield).</summary>
+    Starfield = 6,
+
+    /// <summary>Bong bóng nước bồng bềnh nổi (Floating Bubbles).</summary>
+    FloatingBubbles = 7,
+
+    /// <summary>Dải cực quang gợn sóng mềm mại (Aurora Waves).</summary>
+    AuroraWave = 8
+}
+
+/// <summary>
+/// Phạm vi áp dụng hiệu ứng nền.
+/// </summary>
+public enum LyricsEffectScope
+{
+    /// <summary>Áp dụng cho cả Lời gốc Media Bar và Lời dịch/Pinyin Taskbar.</summary>
+    Both = 0,
+
+    /// <summary>Chỉ áp dụng cho khu vực Lời dịch &amp; Pinyin.</summary>
+    DualTaskbarOnly = 1,
+
+    /// <summary>Chỉ áp dụng cho khu vực Lời gốc Media Bar.</summary>
+    MediaBarOriginalOnly = 2
+}
+
+/// <summary>
+/// Mật độ số lượng hạt hiệu ứng.
+/// </summary>
+public enum LyricsEffectDensity
+{
+    /// <summary>Thưa thớt, nhẹ nhàng (Tiết kiệm tài nguyên tối đa).</summary>
+    Low = 0,
+
+    /// <summary>Vừa phải, hài hòa (Mặc định).</summary>
+    Medium = 1,
+
+    /// <summary>Dày đặc, sống động.</summary>
+    High = 2
+}
+
+/// <summary>
+/// Tốc độ chuyển động của hiệu ứng nền.
+/// </summary>
+public enum LyricsEffectSpeed
+{
+    /// <summary>Chậm rãi, êm dịu.</summary>
+    Slow = 0,
+
+    /// <summary>Tiêu chuẩn, tự nhiên (Mặc định).</summary>
+    Normal = 1,
+
+    /// <summary>Nhanh, sinh động.</summary>
+    Fast = 2
+}
+
+/// <summary>
 /// Nhà cung cấp dịch thuật (Translation Provider).
 /// </summary>
 public enum TranslationProviderType
@@ -233,6 +311,21 @@ public sealed class CustomSettings
 
     /// <summary>Độ mờ đục của chữ (0.2 -> 1.0).</summary>
     public double Opacity { get; set; } = 0.95;
+
+    /// <summary>Kiểu hiệu ứng nền cho khu vực lời bài hát.</summary>
+    public LyricsBackgroundEffectType BackgroundEffect { get; set; } = LyricsBackgroundEffectType.None;
+
+    /// <summary>Phạm vi áp dụng hiệu ứng nền.</summary>
+    public LyricsEffectScope BackgroundEffectScope { get; set; } = LyricsEffectScope.Both;
+
+    /// <summary>Mật độ hạt của hiệu ứng nền.</summary>
+    public LyricsEffectDensity BackgroundEffectDensity { get; set; } = LyricsEffectDensity.Medium;
+
+    /// <summary>Tốc độ bay/rơi của hiệu ứng nền.</summary>
+    public LyricsEffectSpeed BackgroundEffectSpeed { get; set; } = LyricsEffectSpeed.Normal;
+
+    /// <summary>Độ trong suốt của hiệu ứng nền (0.1 -> 1.0, mặc định 0.65).</summary>
+    public double BackgroundEffectOpacity { get; set; } = 0.65;
 }
 
 /// <summary>
@@ -252,12 +345,15 @@ public sealed class CustomSettingsManager
         Converters = { new JsonStringEnumConverter() }
     };
 
+    public static CustomSettingsManager? Instance { get; private set; }
+
     public CustomSettings Current { get; private set; } = new();
 
     public event Action<CustomSettings>? SettingsChanged;
 
     public CustomSettingsManager()
     {
+        Instance = this;
         LoadSettings();
     }
 
