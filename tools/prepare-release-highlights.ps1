@@ -23,7 +23,7 @@ foreach ($release in $catalogue.releases) {
     $version = [version]::new([int]$parts[0], [int]$parts[1], [int]$parts[2], $(if ($parts.Length -gt 3) { [int]$parts[3] } else { 0 }))
     if (-not $seen.Add($version)) { throw "Duplicate version: $version" }
     [void][datetime]::ParseExact($release.releaseDate, 'yyyy-MM-dd', [cultureinfo]::InvariantCulture)
-    if ($release.releaseNotesUrl -notmatch '^https://github\.com/Fervent-Tempo/AF-Media-Bar/releases/tag/[^?#]+$') { throw 'Invalid official notes link.' }
+    if ($release.releaseNotesUrl -notmatch '^https://github\.com/(tienwopa|Fervent-Tempo)/AF-Media-Bar/releases/tag/[^?#]+$') { throw 'Invalid official notes link.' }
     foreach ($language in @('zh-Hans', 'zh-Hant', 'en')) {
         $text = $release.localizations.$language
         if ([string]::IsNullOrWhiteSpace($text.title) -or $text.highlights.Count -eq 0) { throw "Missing $language highlights." }

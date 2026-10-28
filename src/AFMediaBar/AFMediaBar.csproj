@@ -36,7 +36,7 @@
     <Version>1.6.0</Version>
     <Authors>AmorFate</Authors>
     <Copyright>Copyright (c) 2026 AmorFate</Copyright>
-    <RepositoryUrl>https://github.com/Fervent-Tempo/AF-Media-Bar</RepositoryUrl>
+    <RepositoryUrl>https://github.com/tienwopa/AF-Media-Bar</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 

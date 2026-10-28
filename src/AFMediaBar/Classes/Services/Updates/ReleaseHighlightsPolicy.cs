@@ -137,7 +137,9 @@ public static class ReleaseHighlightsPolicy
     public static bool IsSafeNotesUrl(string? value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps &&
         uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) && uri.IsDefaultPort &&
-        string.IsNullOrEmpty(uri.UserInfo) && uri.AbsolutePath.StartsWith("/Fervent-Tempo/AF-Media-Bar/releases/", StringComparison.OrdinalIgnoreCase);
+        string.IsNullOrEmpty(uri.UserInfo) &&
+        (uri.AbsolutePath.StartsWith("/tienwopa/AF-Media-Bar/releases/", StringComparison.OrdinalIgnoreCase) ||
+         uri.AbsolutePath.StartsWith("/Fervent-Tempo/AF-Media-Bar/releases/", StringComparison.OrdinalIgnoreCase));
 
     private static string? String(JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String

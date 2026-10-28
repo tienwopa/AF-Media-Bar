@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory)][string]$CataloguePath,
     [string]$ReleaseNotesPath,
     [switch]$ReplaceVersionText,
-    [string]$Repository = 'Fervent-Tempo/AF-Media-Bar'
+    [string]$Repository = 'tienwopa/AF-Media-Bar'
 )
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

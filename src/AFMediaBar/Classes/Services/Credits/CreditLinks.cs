@@ -15,13 +15,13 @@ namespace AFMediaBar.Classes.Services.Credits;
 public static class CreditLinks
 {
     /// <summary>仓库主页。/ The repository home page.</summary>
-    public const string RepositoryUrl = "https://github.com/Fervent-Tempo/AF-Media-Bar";
+    public const string RepositoryUrl = "https://github.com/tienwopa/AF-Media-Bar";
 
     /// <summary>议题页。/ The issue tracker.</summary>
-    public const string IssuesUrl = "https://github.com/Fervent-Tempo/AF-Media-Bar/issues";
+    public const string IssuesUrl = "https://github.com/tienwopa/AF-Media-Bar/issues";
 
     /// <summary>仓库所有者的 GitHub 账号。/ The GitHub account that owns the repository.</summary>
-    public const string RepositoryOwner = "Fervent-Tempo";
+    public const string RepositoryOwner = "tienwopa";
 
     /// <summary>仓库名。/ The repository name.</summary>
     public const string RepositoryName = "AF-Media-Bar";

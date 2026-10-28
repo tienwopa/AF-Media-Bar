@@ -3,7 +3,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Tag,
-    [string]$Repository = 'Fervent-Tempo/AF-Media-Bar',
+    [string]$Repository = 'tienwopa/AF-Media-Bar',
     [string]$ArtifactDirectory = 'artifacts',
     [string]$OutputDirectory = 'artifacts/metadata',
     [string]$ReleaseNotesPath = 'RELEASE_NOTES.md',
