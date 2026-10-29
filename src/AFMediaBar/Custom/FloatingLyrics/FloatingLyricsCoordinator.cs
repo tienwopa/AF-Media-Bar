@@ -108,7 +108,7 @@ public sealed class FloatingLyricsCoordinator : IDisposable
 
         _window.UpdateTrackInfo(snapshot.Title, snapshot.Artist);
 
-        var trackKey = $"{snapshot.Artist}_{snapshot.Title}_{snapshot.Duration}";
+        var trackKey = $"{snapshot.Artist}_{snapshot.Title}";
         if (!string.Equals(_activeTrackKey, trackKey, StringComparison.Ordinal))
         {
             _activeTrackKey = trackKey;

@@ -120,9 +120,21 @@ public partial class TaskBarMediaControl
         }
 
         
+        private string? _lastMediaBarConfigSnapshot;
+
         private void OnCustomLyricsSettingsChanged(CustomSettings settings)
         {
             if (_owner.Dispatcher.HasShutdownStarted || _owner.Dispatcher.HasShutdownFinished) return;
+
+            // Chỉ làm mới MediaBar khi các cài đặt liên quan đến MediaBar thay đổi (bỏ qua thay đổi toạ độ/kích thước bảng nổi)
+            var currentMediaBarConfig = $"{settings.RenderingEngine}_{settings.MediaBarPrimaryContent}_{settings.MediaBarLine1}_{settings.MediaBarLine2}_{settings.AnimationMode}_{settings.AnimationSpeed}_{settings.LineOrder}_{settings.WeightEmphasis}_{settings.EnableBilingualLyrics}_{settings.TargetLanguage}_{settings.BackgroundEffect}_{settings.BackgroundEffectScope}_{settings.BackgroundEffectOpacity}";
+
+            if (string.Equals(_lastMediaBarConfigSnapshot, currentMediaBarConfig, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _lastMediaBarConfigSnapshot = currentMediaBarConfig;
             _owner.Dispatcher.BeginInvoke(() =>
             {
                 if (_lyricsHostLoaded)
@@ -132,7 +144,10 @@ public partial class TaskBarMediaControl
                     ApplyWebLyricsStyle();
                 }
             });
+            return;
         }
+
+
 
         private void OnEnrichedLyricsUpdated(LyricDocument doc, bool isVietnamese)
         {

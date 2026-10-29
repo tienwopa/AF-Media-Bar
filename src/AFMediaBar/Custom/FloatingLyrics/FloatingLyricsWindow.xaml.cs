@@ -75,6 +75,8 @@ public sealed partial class FloatingLyricsWindow : Window
 
         ApplyThemeBrushes();
         ApplyBackgroundAppearance();
+        WindowBackgroundEffect.IsActive = true;
+        WindowBackgroundEffect.ExplicitEffect = _settingsManager.Current.FloatingLyricsBgEffect;
         ApplySettings();
         RestoreGeometrySettings();
     }
@@ -85,9 +87,9 @@ public sealed partial class FloatingLyricsWindow : Window
         var source = PresentationSource.FromVisual(this) as HwndSource;
         source?.AddHook(WndProc);
 
-        // Đảm bảo cửa sổ không bao giờ che khuất taskbar khi Maximize
-        MaxHeight = SystemParameters.WorkArea.Height + 14;
-        MaxWidth = SystemParameters.WorkArea.Width + 14;
+        // Đảm bảo cửa sổ không bao giờ che khuất taskbar khi Maximize và không tràn mép trên
+        MaxHeight = SystemParameters.WorkArea.Height;
+        MaxWidth = SystemParameters.WorkArea.Width;
     }
 
     #region Window Resizing via Win32 WM_NCHITTEST
@@ -124,6 +126,23 @@ public sealed partial class FloatingLyricsWindow : Window
             if (isBottom) { handled = true; return new IntPtr(HTBOTTOM); }
         }
         return IntPtr.Zero;
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            if (WindowState == WindowState.Maximized)
+            {
+                ToggleMaximize();
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.F11)
+        {
+            ToggleMaximize();
+            e.Handled = true;
+        }
     }
     #endregion
 
@@ -184,16 +203,17 @@ public sealed partial class FloatingLyricsWindow : Window
         _activeSecondaryBrush = new SolidColorBrush(Color.FromRgb(255, 213, 79));
         _activeSecondaryBrush.Freeze();
 
-        _pastBrush = new SolidColorBrush(Color.FromArgb(135, activeColor.R, activeColor.G, activeColor.B));
+        // Độ tương phản cao hơn rõ rệt (Alpha 200 = 78%, Alpha 175 = 69%)
+        _pastBrush = new SolidColorBrush(Color.FromArgb(200, activeColor.R, activeColor.G, activeColor.B));
         _pastBrush.Freeze();
 
-        _futureBrush = new SolidColorBrush(Color.FromArgb(100, activeColor.R, activeColor.G, activeColor.B));
+        _futureBrush = new SolidColorBrush(Color.FromArgb(175, activeColor.R, activeColor.G, activeColor.B));
         _futureBrush.Freeze();
 
-        _pastSecondaryBrush = new SolidColorBrush(Color.FromArgb(110, 255, 213, 79));
+        _pastSecondaryBrush = new SolidColorBrush(Color.FromArgb(175, 255, 213, 79));
         _pastSecondaryBrush.Freeze();
 
-        _futureSecondaryBrush = new SolidColorBrush(Color.FromArgb(85, 255, 213, 79));
+        _futureSecondaryBrush = new SolidColorBrush(Color.FromArgb(150, 255, 213, 79));
         _futureSecondaryBrush.Freeze();
     }
     #endregion
@@ -297,6 +317,61 @@ public sealed partial class FloatingLyricsWindow : Window
     #endregion
 
     #region Attached Mode (Gắn liền Media Bar)
+    private Rect? GetTaskBarMediaControlBounds()
+    {
+        try
+        {
+            foreach (Window win in Application.Current.Windows)
+            {
+                if (win.IsVisible && (win.GetType().Name.Contains("TaskbarWindow", StringComparison.OrdinalIgnoreCase) || win.GetType().Name.Contains("FloatingBarWindow", StringComparison.OrdinalIgnoreCase)))
+                {
+                    var mediaControl = FindVisualChild<AFMediaBar.Components.TaskBarMediaControl>(win);
+                    if (mediaControl != null && mediaControl.IsVisible && mediaControl.ActualWidth > 0 && mediaControl.ActualHeight > 0)
+                    {
+                        var screenPos = mediaControl.PointToScreen(new Point(0, 0));
+                        var source = PresentationSource.FromVisual(this);
+                        if (source?.CompositionTarget != null)
+                        {
+                            var transform = source.CompositionTarget.TransformFromDevice;
+                            var dipPos = transform.Transform(screenPos);
+                            return new Rect(dipPos.X, dipPos.Y, mediaControl.ActualWidth, mediaControl.ActualHeight);
+                        }
+                        return new Rect(screenPos.X, screenPos.Y, mediaControl.ActualWidth, mediaControl.ActualHeight);
+                    }
+                    else if (win.ActualWidth > 0 && win.ActualHeight > 0)
+                    {
+                        var screenPos = win.PointToScreen(new Point(0, 0));
+                        var source = PresentationSource.FromVisual(this);
+                        if (source?.CompositionTarget != null)
+                        {
+                            var transform = source.CompositionTarget.TransformFromDevice;
+                            var dipPos = transform.Transform(screenPos);
+                            return new Rect(dipPos.X, dipPos.Y, win.ActualWidth, win.ActualHeight);
+                        }
+                        return new Rect(screenPos.X, screenPos.Y, win.ActualWidth, win.ActualHeight);
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        if (parent == null) return null;
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed) return typed;
+            var desc = FindVisualChild<T>(child);
+            if (desc != null) return desc;
+        }
+        return null;
+    }
+
     public void PositionAttachedToMediaBar()
     {
         double workWidth = SystemParameters.WorkArea.Width;
@@ -304,12 +379,32 @@ public sealed partial class FloatingLyricsWindow : Window
         double workLeft = SystemParameters.WorkArea.Left;
         double workTop = SystemParameters.WorkArea.Top;
 
-        Width = Math.Clamp(workWidth * 0.42, 440, 680);
-        Height = Math.Clamp(workHeight * 0.65, 460, 720);
+        Width = Math.Clamp(workWidth * 0.45, 460, 680);
+        Height = Math.Clamp(workHeight * 0.65, 480, 720);
 
-        // Canh giữa màn hình theo phương ngang, neo sát mép trên thanh Taskbar
-        Left = workLeft + ((workWidth - Width) / 2.0);
-        Top = workTop + workHeight - Height - 8;
+        var barBounds = GetTaskBarMediaControlBounds();
+        if (barBounds.HasValue)
+        {
+            var bounds = barBounds.Value;
+            // Căn giữa bảng nổi theo vị trí ngang của Media Bar thực tế trên Taskbar
+            double targetLeft = bounds.Left + ((bounds.Width - Width) / 2.0);
+            targetLeft = Math.Clamp(targetLeft, workLeft + 8, workLeft + workWidth - Width - 8);
+
+            // Đặt ngay sát phía trên Media Bar (cách 6px)
+            double targetTop = bounds.Top - Height - 6;
+            if (targetTop < workTop + 8)
+            {
+                targetTop = workTop + 8;
+            }
+
+            Left = targetLeft;
+            Top = targetTop;
+        }
+        else
+        {
+            Left = workLeft + ((workWidth - Width) / 2.0);
+            Top = workTop + workHeight - Height - 8;
+        }
 
         WindowStartupLocation = WindowStartupLocation.Manual;
     }
@@ -376,9 +471,11 @@ public sealed partial class FloatingLyricsWindow : Window
         {
             WindowState = WindowState.Normal;
             RootContainer.Margin = new Thickness(10);
+            MainSurface.CornerRadius = new CornerRadius(16);
+            InnerClippingBorder.CornerRadius = new CornerRadius(15);
             ResizeGripIcon.Visibility = Visibility.Visible;
             MaximizeGlyph.Text = "\uE922";
-            MaximizeButton.ToolTip = "Phóng to toàn màn hình (hoặc nhấp đúp tiêu đề)";
+            MaximizeButton.ToolTip = "Phóng to toàn màn hình (F11 / Nhấp đúp tiêu đề)";
         }
         else
         {
@@ -391,9 +488,11 @@ public sealed partial class FloatingLyricsWindow : Window
 
             WindowState = WindowState.Maximized;
             RootContainer.Margin = new Thickness(0);
+            MainSurface.CornerRadius = new CornerRadius(0);
+            InnerClippingBorder.CornerRadius = new CornerRadius(0);
             ResizeGripIcon.Visibility = Visibility.Collapsed;
             MaximizeGlyph.Text = "\uE923";
-            MaximizeButton.ToolTip = "Khôi phục kích thước (hoặc nhấp đúp tiêu đề)";
+            MaximizeButton.ToolTip = "Khôi phục cửa sổ nổi (ESC / F11 / Nhấp đúp tiêu đề)";
         }
 
         ScrollToActiveLine(animate: false);
@@ -563,7 +662,7 @@ public sealed partial class FloatingLyricsWindow : Window
             mi.Click += (s, ev) =>
             {
                 settings.FloatingLyricsBgEffect = effect;
-                settings.BackgroundEffect = effect;
+                WindowBackgroundEffect.ExplicitEffect = effect;
                 _settingsManager.SaveSettings();
             };
             effectMenu.Items.Add(mi);
@@ -719,10 +818,25 @@ public sealed partial class FloatingLyricsWindow : Window
 
     public void SetLyrics(LyricDocument? document, bool isVietnamese)
     {
+        if (AreDocumentsEquivalent(_currentDocument, document) && _isVietnameseTrack == isVietnamese)
+        {
+            return;
+        }
+
         _currentDocument = document;
         _isVietnameseTrack = isVietnamese;
         _lastActiveIndex = -1;
         RebuildLyricsList();
+    }
+
+    private static bool AreDocumentsEquivalent(LyricDocument? a, LyricDocument? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a == null || b == null) return false;
+        if (a.Lines.Count != b.Lines.Count) return false;
+        if (a.Lines.Count == 0) return true;
+        return string.Equals(a.Lines[0].Text, b.Lines[0].Text, StringComparison.Ordinal)
+            && string.Equals(a.Lines[^1].Text, b.Lines[^1].Text, StringComparison.Ordinal);
     }
 
     private void RebuildLyricsList()
@@ -839,7 +953,14 @@ public sealed partial class FloatingLyricsWindow : Window
             for (int i = 0; i < Items.Count; i++)
             {
                 var item = Items[i];
-                if (i < activeIndex)
+                if (activeIndex < 0)
+                {
+                    item.IsActive = false;
+                    item.IsPast = false;
+                    item.PrimaryForeground = _futureBrush;
+                    item.SecondaryForeground = _futureSecondaryBrush;
+                }
+                else if (i < activeIndex)
                 {
                     item.IsActive = false;
                     item.IsPast = true;

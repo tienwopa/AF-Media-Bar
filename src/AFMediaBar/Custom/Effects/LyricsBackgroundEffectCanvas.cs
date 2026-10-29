@@ -50,6 +50,21 @@ public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
         }
     }
 
+    private LyricsBackgroundEffectType? _explicitEffect;
+    public LyricsBackgroundEffectType? ExplicitEffect
+    {
+        get => _explicitEffect;
+        set
+        {
+            if (_explicitEffect != value)
+            {
+                _explicitEffect = value;
+                ApplySettings(CustomSettingsManager.Instance.Current);
+                EvaluateRunningState();
+            }
+        }
+    }
+
     private readonly Random _random = new();
     private readonly DispatcherTimer _renderTimer;
     private bool _isSettingsAttached;
@@ -227,8 +242,9 @@ public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
 
     private void ApplySettings(CustomSettings settings)
     {
-        bool effectChanged = _currentEffect != settings.BackgroundEffect;
-        _currentEffect = settings.BackgroundEffect;
+        var targetEffect = _explicitEffect ?? settings.BackgroundEffect;
+        bool effectChanged = _currentEffect != targetEffect;
+        _currentEffect = targetEffect;
         _customOpacity = Math.Clamp(settings.BackgroundEffectOpacity, 0.1, 1.0);
 
         if (_currentEffect == LyricsBackgroundEffectType.None)
@@ -276,6 +292,11 @@ public sealed class LyricsBackgroundEffectCanvas : FrameworkElement
         if (!_isActive || !IsVisible || _currentEffect == LyricsBackgroundEffectType.None)
         {
             return false;
+        }
+
+        if (_explicitEffect.HasValue || TargetScope == LyricsEffectScope.Both)
+        {
+            return true;
         }
 
         var mgr = CustomSettingsManager.Instance;
