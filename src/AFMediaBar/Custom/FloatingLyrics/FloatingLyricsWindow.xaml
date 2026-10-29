@@ -1,0 +1,311 @@
+<Window x:Class="AFMediaBar.Custom.FloatingLyrics.FloatingLyricsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:effects="clr-namespace:AFMediaBar.Custom.Effects"
+        xmlns:local="clr-namespace:AFMediaBar.Custom.FloatingLyrics"
+        mc:Ignorable="d"
+        Title="Lời bài hát nổi - AF Media Bar"
+        Width="440" Height="580"
+        MinWidth="300" MinHeight="360"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        RenderOptions.ClearTypeHint="Enabled"
+        TextOptions.TextRenderingMode="ClearType"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+
+        <!-- Style cho các nút điều khiển nhỏ trên Header -->
+        <Style x:Key="FloatingHeaderButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#D0FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" CornerRadius="6" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#25FFFFFF" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#3DFFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Style cho nút đóng cửa sổ Close button -->
+        <Style x:Key="FloatingCloseButtonStyle" TargetType="Button" BasedOn="{StaticResource FloatingHeaderButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CloseBorder" Background="{TemplateBinding Background}" CornerRadius="6" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CloseBorder" Property="Background" Value="#D41126" />
+                                <Setter Property="Foreground" Value="#FFFFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="CloseBorder" Property="Background" Value="#A80D1D" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="RootContainer" Margin="10">
+        <!-- Đổ bóng ngoài cửa sổ -->
+        <Border CornerRadius="16" Background="#141416">
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" BlurRadius="22" ShadowDepth="4" Opacity="0.55" />
+            </Border.Effect>
+        </Border>
+
+        <!-- Nền kính mờ chính của Bảng nổi -->
+        <Border x:Name="MainSurface"
+                CornerRadius="16"
+                Background="#E618181C"
+                BorderBrush="#33FFFFFF"
+                BorderThickness="1"
+                ClipToBounds="True">
+            <Grid>
+                <!-- Hiệu ứng hạt nền phía sau lời bài hát (Sakura, Snow, Starfield, v.v.) -->
+                <effects:LyricsBackgroundEffectCanvas x:Name="WindowBackgroundEffect"
+                                                      TargetScope="Both"
+                                                      HorizontalAlignment="Stretch"
+                                                      VerticalAlignment="Stretch"
+                                                      IsHitTestVisible="False"
+                                                      Opacity="0.75" />
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Header / Toolbar: 44px -->
+                        <RowDefinition Height="44" />
+                        <!-- Body: Danh sách Lyrics -->
+                        <RowDefinition Height="*" />
+                        <!-- Footer nhỏ góc co giãn: 14px -->
+                        <RowDefinition Height="14" />
+                    </Grid.RowDefinitions>
+
+                    <!-- HEADER TOOLBAR: Kéo di chuyển cửa sổ và thao tác nhanh -->
+                    <Border Grid.Row="0"
+                            x:Name="HeaderBorder"
+                            Background="#18FFFFFF"
+                            BorderBrush="#15FFFFFF"
+                            BorderThickness="0,0,0,1"
+                            MouseLeftButtonDown="HeaderBorder_MouseLeftButtonDown">
+                        <Grid Margin="12,0,8,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Tiêu đề bài hát và nghệ sĩ -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#xEC4F;"
+                                           FontFamily="{DynamicResource AppIconFontFamily}"
+                                           FontSize="14"
+                                           Foreground="{DynamicResource AfAccentBrush}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0" />
+                                <TextBlock x:Name="TrackTitleText"
+                                           Text="Lời bài hát"
+                                           FontWeight="SemiBold"
+                                           FontSize="13"
+                                           Foreground="#FFFFFFFF"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="180" />
+                                <TextBlock Text=" - "
+                                           FontSize="12"
+                                           Foreground="#80FFFFFF"
+                                           VerticalAlignment="Center" />
+                                <TextBlock x:Name="TrackArtistText"
+                                           Text="AF Media Bar"
+                                           FontSize="12"
+                                           Foreground="#A0FFFFFF"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           MaxWidth="120" />
+                            </StackPanel>
+
+                            <!-- Cụm nút công cụ bên phải -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Nút chọn chế độ thể hiện lyrics -->
+                                <Button x:Name="DisplayModeButton"
+                                        Style="{StaticResource FloatingHeaderButtonStyle}"
+                                        ToolTip="Tùy chỉnh cách thể hiện Lời bài hát"
+                                        Click="DisplayModeButton_Click">
+                                    <TextBlock Text="&#xE12B;" FontFamily="{DynamicResource AppIconFontFamily}" FontSize="13" />
+                                </Button>
+
+                                <!-- Nút chỉnh độ trong suốt Opacity -->
+                                <Button x:Name="OpacityButton"
+                                        Style="{StaticResource FloatingHeaderButtonStyle}"
+                                        ToolTip="Điều chỉnh độ trong suốt"
+                                        Click="OpacityButton_Click">
+                                    <TextBlock Text="&#xE706;" FontFamily="{DynamicResource AppIconFontFamily}" FontSize="13" />
+                                </Button>
+
+                                <!-- Nút điều chỉnh cỡ chữ (A) -->
+                                <Button x:Name="FontSizeButton"
+                                        Style="{StaticResource FloatingHeaderButtonStyle}"
+                                        ToolTip="Điều chỉnh cỡ chữ"
+                                        Click="FontSizeButton_Click">
+                                    <TextBlock Text="&#xE8D2;" FontFamily="{DynamicResource AppIconFontFamily}" FontSize="13" />
+                                </Button>
+
+                                <!-- Nút ghim Topmost -->
+                                <Button x:Name="PinButton"
+                                        Style="{StaticResource FloatingHeaderButtonStyle}"
+                                        ToolTip="Ghim luôn hiển thị trên cùng"
+                                        Click="PinButton_Click">
+                                    <TextBlock x:Name="PinGlyph" Text="&#xE718;" FontFamily="{DynamicResource AppIconFontFamily}" FontSize="12" />
+                                </Button>
+
+                                <!-- Nút đóng [X] -->
+                                <Button x:Name="CloseButton"
+                                        Style="{StaticResource FloatingCloseButtonStyle}"
+                                        ToolTip="Đóng bảng lời bài hát"
+                                        Click="CloseButton_Click">
+                                    <TextBlock Text="&#xE8BB;" FontFamily="{DynamicResource AppIconFontFamily}" FontSize="11" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- BODY: Danh sách toàn bộ lời bài hát có thể cuộn -->
+                    <Grid Grid.Row="1">
+                        <!-- ScrollViewer chứa Lyrics -->
+                        <ScrollViewer x:Name="LyricsScrollViewer"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      CanContentScroll="False"
+                                      PanningMode="VerticalOnly"
+                                      PreviewMouseWheel="LyricsScrollViewer_PreviewMouseWheel"
+                                      ScrollChanged="LyricsScrollViewer_ScrollChanged">
+                            <ItemsControl x:Name="LyricsItemsList"
+                                          Margin="16,20,16,60"
+                                          Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type local:FloatingLyricsItem}">
+                                        <Border x:Name="ItemContainer"
+                                                Padding="14,10"
+                                                Margin="0,4"
+                                                CornerRadius="10"
+                                                Background="Transparent"
+                                                Cursor="Hand"
+                                                MouseLeftButtonUp="ItemContainer_MouseLeftButtonUp"
+                                                RenderTransformOrigin="0.5,0.5">
+                                            <Border.RenderTransform>
+                                                <ScaleTransform x:Name="ItemScale" ScaleX="1.0" ScaleY="1.0" />
+                                            </Border.RenderTransform>
+                                            <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                                                <!-- Dòng Text chính -->
+                                                <TextBlock Text="{Binding PrimaryText}"
+                                                           Foreground="{Binding PrimaryForeground}"
+                                                           FontSize="{Binding FontSize}"
+                                                           FontWeight="Normal"
+                                                           TextAlignment="Center"
+                                                           TextWrapping="Wrap"
+                                                           HorizontalAlignment="Center"
+                                                           FontFamily="Segoe UI, Microsoft YaHei, Aptos">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                                <!-- Dòng Text phụ (Pinyin hoặc Lời dịch) -->
+                                                <TextBlock Text="{Binding SecondaryText}"
+                                                           Foreground="{Binding SecondaryForeground}"
+                                                           FontSize="{Binding SecondaryFontSize}"
+                                                           TextAlignment="Center"
+                                                           TextWrapping="Wrap"
+                                                           HorizontalAlignment="Center"
+                                                           Margin="0,4,0,0"
+                                                           FontFamily="Segoe UI, Microsoft YaHei, Aptos"
+                                                           Visibility="{Binding HasSecondary, Converter={StaticResource BoolToVisConverter}}" />
+                                            </StackPanel>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ItemContainer" Property="Background" Value="#18FFFFFF" />
+                                            </Trigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <!-- Màn hình chờ khi chưa có lyrics hoặc dừng phát -->
+                        <Grid x:Name="EmptyLyricsPlaceholder"
+                              Background="Transparent"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              IsHitTestVisible="False"
+                              Visibility="Collapsed">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="&#xEC4F;"
+                                           FontFamily="{DynamicResource AppIconFontFamily}"
+                                           FontSize="46"
+                                           Foreground="#40FFFFFF"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,0,0,14" />
+                                <TextBlock Text="Chưa có lời bài hát"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Foreground="#90FFFFFF"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="Bật một bài hát trên Spotify, Apple Music hoặc trình phát media"
+                                           FontSize="12"
+                                           Foreground="#50FFFFFF"
+                                           HorizontalAlignment="Center"
+                                           Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+
+                    <!-- FOOTER: Góc co giãn Resize Grip -->
+                    <Grid Grid.Row="2" Height="14" IsHitTestVisible="False">
+                        <TextBlock Text="&#xE7C1;"
+                                   FontFamily="{DynamicResource AppIconFontFamily}"
+                                   FontSize="9"
+                                   Foreground="#40FFFFFF"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Bottom"
+                                   Margin="0,0,6,4" />
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -661,6 +661,14 @@
                                         PreviewMouseWheel="TaskbarInputDeviceButton_PreviewMouseWheel">
                                     <TextBlock x:Name="TaskbarHoverInputDeviceGlyph" Text="&#xE720;" FontFamily="{DynamicResource AppIconFontFamily}" FontSize="14" />
                                 </Button>
+                                <Button x:Name="TaskbarFloatingLyricsButton"
+                                        Style="{StaticResource TaskbarHoverButton}"
+                                        Margin="1,0,1,0"
+                                        ToolTip="Bảng lời bài hát nổi (Floating Lyrics)"
+                                        ToolTipService.InitialShowDelay="200"
+                                        Click="TaskbarFloatingLyricsButton_Click">
+                                    <TextBlock x:Name="TaskbarHoverFloatingLyricsGlyph" Text="&#xE1D0;" FontFamily="{DynamicResource AppIconFontFamily}" FontSize="14" />
+                                </Button>
                                 <Button x:Name="TaskbarVolumeButton"
                                         Style="{StaticResource TaskbarHoverButton}"
                                         ToolTip="{DynamicResource Loc.Panel.Volume.Tooltip}"

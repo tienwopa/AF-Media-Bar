@@ -327,6 +327,30 @@ public enum MediaBarLyricsDisplayMode
 }
 
 /// <summary>
+/// Chế độ hiển thị lời bài hát trên Bảng nổi (Floating Lyrics).
+/// </summary>
+public enum FloatingLyricsDisplayMode
+{
+    /// <summary>Lời gốc + Pinyin / Phiên âm.</summary>
+    OriginalAndRomanization = 0,
+
+    /// <summary>Lời gốc + Lời dịch Tiếng Việt (Mặc định).</summary>
+    OriginalAndTranslation = 1,
+
+    /// <summary>Chỉ Pinyin / Phiên âm.</summary>
+    RomanizationOnly = 2,
+
+    /// <summary>Chỉ Lời bài hát gốc.</summary>
+    OriginalOnly = 3,
+
+    /// <summary>Chỉ Lời dịch Tiếng Việt.</summary>
+    TranslationOnly = 4,
+
+    /// <summary>Pinyin / Phiên âm + Lời dịch Tiếng Việt.</summary>
+    RomanizationAndTranslation = 5
+}
+
+/// <summary>
 /// Động cơ kết xuất lời bài hát trên Taskbar chính.
 /// </summary>
 public enum LyricsRenderingEngine
@@ -494,6 +518,33 @@ public sealed class CustomSettings
 
     /// <summary>Độ trong suốt của hiệu ứng nền (0.1 -> 1.0, mặc định 0.65).</summary>
     public double BackgroundEffectOpacity { get; set; } = 0.65;
+
+    /// <summary>Trạng thái hiển thị của Bảng lời bài hát nổi (Floating Lyrics Window).</summary>
+    public bool EnableFloatingLyrics { get; set; } = false;
+
+    /// <summary>Chế độ hiển thị nội dung trên Bảng lời bài hát nổi.</summary>
+    public FloatingLyricsDisplayMode FloatingLyricsMode { get; set; } = FloatingLyricsDisplayMode.OriginalAndTranslation;
+
+    /// <summary>Độ trong suốt của Bảng lời bài hát nổi (từ 0.2 đến 1.0, mặc định 0.88).</summary>
+    public double FloatingLyricsOpacity { get; set; } = 0.88;
+
+    /// <summary>Tọa độ X (Left) của Bảng nổi trên màn hình.</summary>
+    public double FloatingLyricsLeft { get; set; } = double.NaN;
+
+    /// <summary>Tọa độ Y (Top) của Bảng nổi trên màn hình.</summary>
+    public double FloatingLyricsTop { get; set; } = double.NaN;
+
+    /// <summary>Chiều rộng của Bảng nổi (DIP, mặc định 440).</summary>
+    public double FloatingLyricsWidth { get; set; } = 440.0;
+
+    /// <summary>Chiều cao của Bảng nổi (DIP, mặc định 580).</summary>
+    public double FloatingLyricsHeight { get; set; } = 580.0;
+
+    /// <summary>Luôn hiển thị trên cùng (Topmost) của Bảng nổi.</summary>
+    public bool FloatingLyricsTopmost { get; set; } = true;
+
+    /// <summary>Cỡ chữ cơ sở cho câu đang hát trên Bảng nổi (DIP, mặc định 18).</summary>
+    public double FloatingLyricsFontSize { get; set; } = 18.0;
 }
 
 /// <summary>

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using AFMediaBar.Custom.DualOverlay;
+using AFMediaBar.Custom.FloatingLyrics;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Translation;
 
@@ -31,6 +32,10 @@ public static class CustomFeatureBootstrap
         services.AddSingleton<DualTaskbarSecondaryWindow>();
         services.AddSingleton<DualOverlayCoordinator>();
 
+        // 4. Bảng lời bài hát nổi (Floating Lyrics Window)
+        services.AddSingleton<FloatingLyricsWindow>();
+        services.AddSingleton<FloatingLyricsCoordinator>();
+
         return services;
     }
 
@@ -39,6 +44,7 @@ public static class CustomFeatureBootstrap
         try
         {
             _ = serviceProvider.GetRequiredService<DualOverlayCoordinator>();
+            _ = serviceProvider.GetRequiredService<FloatingLyricsCoordinator>();
         }
         catch (Exception ex)
         {

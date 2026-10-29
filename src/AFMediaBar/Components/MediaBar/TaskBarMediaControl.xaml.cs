@@ -2298,7 +2298,7 @@ namespace AFMediaBar.Components
             // 静置层的同名小组件也要放行：它们与悬停层按钮是同一件事的两个入口，滚轮语义必须一致。
             // The rest-layer widgets of the same name are released for the same reason: they are one of two entries for the same thing as
             // the hover-layer buttons, so the wheel semantics have to match.
-            if (TaskbarInputDeviceButton.IsMouseOver || TaskbarInputDeviceSurface.IsMouseOver || TaskbarDeviceButton.IsMouseOver || TaskbarVolumeButton.IsMouseOver ||
+            if (TaskbarFloatingLyricsButton.IsMouseOver || TaskbarInputDeviceButton.IsMouseOver || TaskbarInputDeviceSurface.IsMouseOver || TaskbarDeviceButton.IsMouseOver || TaskbarVolumeButton.IsMouseOver ||
                 TaskbarOutputDeviceSurface.IsMouseOver || TaskbarVolumeSurface.IsMouseOver)
                 return;
 
@@ -2359,6 +2359,9 @@ namespace AFMediaBar.Components
             _outputDeviceSurface = TaskbarDeviceButton;
             OutputDeviceMenuRequested?.Invoke(this, EventArgs.Empty);
         }
+
+        private void TaskbarFloatingLyricsButton_Click(object sender, RoutedEventArgs e) =>
+            AFMediaBar.Custom.FloatingLyrics.FloatingLyricsCoordinator.Instance?.ToggleWindow();
 
         private void TaskbarVolumeButton_Click(object sender, RoutedEventArgs e) =>
             VolumeMenuRequested?.Invoke(this, EventArgs.Empty);
