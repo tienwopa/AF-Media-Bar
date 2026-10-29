@@ -868,6 +868,21 @@
                                 </components:SettingsRow>
 
                                 <components:SettingsRow
+                                    Description="Tốc độ chuyển động khi đổi câu hát (áp dụng chung cho Media Bar và Taskbar phụ)"
+                                    Icon="{ui:SymbolIcon Timer24}"
+                                    IsNested="True"
+                                    Title="Tốc độ hiệu ứng chuyển câu">
+                                    <ComboBox x:Name="CustomAnimationSpeedCombo"
+                                              SelectionChanged="CustomAnimationSpeedCombo_SelectionChanged"
+                                              Width="280">
+                                        <ComboBoxItem Content="Nhanh (200ms)" Tag="0" />
+                                        <ComboBoxItem Content="Vừa phải (350ms - Mặc định)" Tag="1" />
+                                        <ComboBoxItem Content="Chậm rãi (500ms - Giống lời gốc)" Tag="2" />
+                                        <ComboBoxItem Content="Rất chậm (700ms)" Tag="3" />
+                                    </ComboBox>
+                                </components:SettingsRow>
+
+                                <components:SettingsRow
                                     Description="Bật hiệu ứng chạy màu chữ Karaoke theo giai điệu bài hát"
                                     Icon="{ui:SymbolIcon MusicNote224}"
                                     IsNested="True"

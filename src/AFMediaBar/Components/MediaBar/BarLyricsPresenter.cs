@@ -5,6 +5,7 @@ using AFMediaBar.Custom.Utils;
 // BarLyricsPresenter 独占单个控件的呈现资源；由控件加载、挂起与卸载路径驱动，不接管业务服务。
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using AFMediaBar.Classes.Abstractions;
 using AFMediaBar.Classes.Services;
@@ -748,14 +749,42 @@ public partial class TaskBarMediaControl
                     _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
             }
 
-            // Cỡ chữ
+            // Cỡ chữ và chiều cao dòng bảo đảm không bị tràn / cắt mép Taskbar
             var fontSize1 = _owner.EffectiveLyricFontSize;
             var fontSize2 = _owner.EffectiveSecondaryLyricFontSize;
             if (customSettings.MediaBarLine1FontSize > 0) fontSize1 = customSettings.MediaBarLine1FontSize;
             if (customSettings.MediaBarLine2FontSize > 0) fontSize2 = customSettings.MediaBarLine2FontSize;
 
+            double availableHeight = _owner.SongLyricsPanel.ActualHeight > 0 ? _owner.SongLyricsPanel.ActualHeight : 32.0;
+
+            if (isTwoLines)
+            {
+                double maxLineHeight = Math.Floor((availableHeight - 1.0) / 2.0);
+                if (maxLineHeight > 4.0)
+                {
+                    double maxFont1 = Math.Max(8.5, maxLineHeight - 1.0);
+                    double maxFont2 = Math.Max(8.0, maxLineHeight - 2.0);
+                    if (fontSize1 > maxFont1) fontSize1 = maxFont1;
+                    if (fontSize2 > maxFont2) fontSize2 = maxFont2;
+                }
+
+                _owner.LyricsWpfLine1Text.LineHeight = fontSize1 * 1.15;
+                _owner.LyricsWpfLine2Text.LineHeight = fontSize2 * 1.15;
+                _owner.LyricsWpfLine2Viewport.Margin = new Thickness(0, 0, 0, 0);
+            }
+            else
+            {
+                _owner.LyricsWpfLine1Text.LineHeight = double.NaN;
+            }
+
             if (_owner.LyricsWpfLine1Text.FontSize != fontSize1) _owner.LyricsWpfLine1Text.FontSize = fontSize1;
             if (_owner.LyricsWpfLine2Text.FontSize != fontSize2) _owner.LyricsWpfLine2Text.FontSize = fontSize2;
+
+            if (line1Changed || line2Changed)
+            {
+                var duration = CustomSettings.GetAnimationDuration(customSettings.AnimationSpeed);
+                TriggerWpfNativeAnimation(customSettings.AnimationMode, duration);
+            }
 
             // Đổ bóng chữ
             var shadowColor = _lyricsUsesLightText ? Colors.Black : Colors.White;
@@ -817,6 +846,40 @@ public partial class TaskBarMediaControl
                     double.NaN,
                     align,
                     line2Changed);
+            }
+        }
+
+        private void TriggerWpfNativeAnimation(LyricsAnimationMode mode, TimeSpan duration)
+        {
+            if (mode == LyricsAnimationMode.None) return;
+
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var opacityAnim = new DoubleAnimation(0.15, 1.0, duration) { EasingFunction = ease };
+            _owner.LyricsWpfStackPanel.BeginAnimation(UIElement.OpacityProperty, opacityAnim);
+
+            switch (mode)
+            {
+                case LyricsAnimationMode.SlideUp:
+                    _owner.LyricsWpfTranslate.Y = 7;
+                    var slideUpAnim = new DoubleAnimation(7, 0, duration) { EasingFunction = ease };
+                    _owner.LyricsWpfTranslate.BeginAnimation(TranslateTransform.YProperty, slideUpAnim);
+                    break;
+
+                case LyricsAnimationMode.SlideHorizontal:
+                    var align = _owner.PresentationSettings.LyricsTextAlignment;
+                    double startX = align == LyricsTextAlignment.Right ? 8 : -8;
+                    _owner.LyricsWpfTranslate.X = startX;
+                    var slideXAnim = new DoubleAnimation(startX, 0, duration) { EasingFunction = ease };
+                    _owner.LyricsWpfTranslate.BeginAnimation(TranslateTransform.XProperty, slideXAnim);
+                    break;
+
+                case LyricsAnimationMode.ZoomIn:
+                    _owner.LyricsWpfScale.ScaleX = 0.94;
+                    _owner.LyricsWpfScale.ScaleY = 0.94;
+                    var scaleAnim = new DoubleAnimation(0.94, 1.0, duration) { EasingFunction = ease };
+                    _owner.LyricsWpfScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
+                    _owner.LyricsWpfScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+                    break;
             }
         }
 

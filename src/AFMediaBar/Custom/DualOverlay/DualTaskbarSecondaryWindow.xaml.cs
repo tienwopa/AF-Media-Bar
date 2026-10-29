@@ -222,10 +222,10 @@ public partial class DualTaskbarSecondaryWindow : Window
     {
         if (mode == LyricsAnimationMode.None) return;
 
-        var duration = TimeSpan.FromMilliseconds(220);
+        var duration = CustomSettings.GetAnimationDuration(_settingsManager.Current.AnimationSpeed);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
 
-        var opacityAnim = new DoubleAnimation(0.2, 1.0, duration) { EasingFunction = ease };
+        var opacityAnim = new DoubleAnimation(0.15, 1.0, duration) { EasingFunction = ease };
         ContentStack.BeginAnimation(OpacityProperty, opacityAnim);
 
         switch (mode)

@@ -119,6 +119,24 @@ public enum LyricsAnimationMode
 }
 
 /// <summary>
+/// Tốc độ hiệu ứng chuyển câu bài hát (áp dụng chung cho Media Bar và Taskbar phụ).
+/// </summary>
+public enum LyricsAnimationSpeed
+{
+    /// <summary>Nhanh (khoảng 200ms).</summary>
+    Fast = 0,
+
+    /// <summary>Vừa phải (khoảng 350ms - Mặc định).</summary>
+    Normal = 1,
+
+    /// <summary>Chậm rãi / Mượt mà (khoảng 500ms - Giống lời gốc).</summary>
+    Slow = 2,
+
+    /// <summary>Rất chậm (khoảng 700ms).</summary>
+    VerySlow = 3
+}
+
+/// <summary>
 /// Kiểu hiệu ứng hạt nền hiển thị phía sau lời bài hát.
 /// </summary>
 public enum LyricsBackgroundEffectType
@@ -384,6 +402,18 @@ public sealed class CustomSettings
 
     /// <summary>Hiệu ứng chuyển câu xuất hiện lời bài hát.</summary>
     public LyricsAnimationMode AnimationMode { get; set; } = LyricsAnimationMode.SlideUp;
+
+    /// <summary>Tốc độ hiệu ứng chuyển câu xuất hiện lời bài hát (áp dụng chung cho Media Bar và Taskbar phụ).</summary>
+    public LyricsAnimationSpeed AnimationSpeed { get; set; } = LyricsAnimationSpeed.Normal;
+
+    /// <summary>Lấy thời lượng hiệu ứng chuyển câu dựa trên tốc độ đã chọn.</summary>
+    public static TimeSpan GetAnimationDuration(LyricsAnimationSpeed speed) => speed switch
+    {
+        LyricsAnimationSpeed.Fast => TimeSpan.FromMilliseconds(200),
+        LyricsAnimationSpeed.Slow => TimeSpan.FromMilliseconds(500),
+        LyricsAnimationSpeed.VerySlow => TimeSpan.FromMilliseconds(700),
+        _ => TimeSpan.FromMilliseconds(350)
+    };
 
     /// <summary>Bật/tắt hiệu ứng chạy chữ Karaoke (Karaoke Wipe Highlight) theo tiến độ bài hát.</summary>
     public bool EnableKaraokeHighlight { get; set; } = true;

@@ -500,6 +500,9 @@ public sealed class DualOverlayCoordinator : IDisposable
                                    (pinyinPlacement == LyricElementPlacement.PrimaryTaskbar ||
                                     pinyinPlacement == LyricElementPlacement.BothScreens);
 
+        bool showVietnameseOnPrimary = (transPlacement is LyricElementPlacement.PrimaryTaskbar or LyricElementPlacement.BothScreens) ||
+                                       (pinyinPlacement is LyricElementPlacement.PrimaryTaskbar or LyricElementPlacement.BothScreens);
+
         string? primaryLine1 = null;
         string? primaryLine2 = null;
         bool isPrimaryPinyin = false;
@@ -529,8 +532,8 @@ public sealed class DualOverlayCoordinator : IDisposable
             }
 
             // Fallback an toàn: Với bài hát Tiếng Việt nếu tùy chỉnh chọn Translation/Romanization (không có trong bài VN),
-            // tự động chuyển sang câu kế tiếp thay vì để trống taskbar phụ
-            if (isVietnameseSong && string.IsNullOrWhiteSpace(primaryLine1) && !string.IsNullOrWhiteSpace(nextLineText) &&
+            // tự động chuyển sang câu kế tiếp thay vì để trống taskbar phụ khi vị trí được đặt ở Taskbar chính
+            if (isVietnameseSong && showVietnameseOnPrimary && string.IsNullOrWhiteSpace(primaryLine1) && !string.IsNullOrWhiteSpace(nextLineText) &&
                 settings.VietnameseSecondaryMode != VietnameseSecondaryMode.OriginalOnly &&
                 settings.VietnameseSecondaryMode != VietnameseSecondaryMode.CombinedOnMediaBar)
             {
@@ -541,7 +544,7 @@ public sealed class DualOverlayCoordinator : IDisposable
                 primaryProgress2 = 1.0;
             }
         }
-        else if (isVietnameseSong)
+        else if (isVietnameseSong && showVietnameseOnPrimary)
         {
             // Bài hát Tiếng Việt:
             // Hiển thị câu kế tiếp ở Taskbar phụ khi chọn chế độ SeparateSides (Tách ra 2 bên)
@@ -643,7 +646,9 @@ public sealed class DualOverlayCoordinator : IDisposable
         // 2. Phân bổ cho Secondary Screen Window (nếu có màn hình 2)
         bool showTransOnSec = transPlacement is LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens;
         bool showPinyinOnSec = pinyinPlacement is LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens;
-        if (hasSecondaryScreen && (showTransOnSec || showPinyinOnSec || isVietnameseSong))
+        bool showVietnameseOnSec = (transPlacement is LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens) ||
+                                   (pinyinPlacement is LyricElementPlacement.SecondaryScreen or LyricElementPlacement.BothScreens);
+        if (hasSecondaryScreen && (showTransOnSec || showPinyinOnSec || (isVietnameseSong && showVietnameseOnSec)))
         {
             string? secLine1 = null;
             string? secLine2 = null;
@@ -672,7 +677,7 @@ public sealed class DualOverlayCoordinator : IDisposable
                     secProgress2 = 1.0;
                 }
 
-                if (isVietnameseSong && string.IsNullOrWhiteSpace(secLine1) && !string.IsNullOrWhiteSpace(nextLineText) &&
+                if (isVietnameseSong && showVietnameseOnSec && string.IsNullOrWhiteSpace(secLine1) && !string.IsNullOrWhiteSpace(nextLineText) &&
                     settings.VietnameseSecondaryMode != VietnameseSecondaryMode.OriginalOnly &&
                     settings.VietnameseSecondaryMode != VietnameseSecondaryMode.CombinedOnMediaBar)
                 {
@@ -683,7 +688,7 @@ public sealed class DualOverlayCoordinator : IDisposable
                     secProgress2 = 1.0;
                 }
             }
-            else if (isVietnameseSong)
+            else if (isVietnameseSong && showVietnameseOnSec)
             {
                 if (settings.VietnameseSecondaryMode == VietnameseSecondaryMode.SeparateSides &&
                     !string.IsNullOrWhiteSpace(nextLineText))

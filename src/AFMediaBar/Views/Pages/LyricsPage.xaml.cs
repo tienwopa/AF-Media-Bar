@@ -85,6 +85,7 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
             SelectEnumTagInCombo(CustomSecondaryAlignCombo, (int)settings.SecondaryAlignment);
             CustomPrimaryAlignCombo.SelectedIndex = (int)settings.PrimaryAlignment;
             CustomAnimationModeCombo.SelectedIndex = (int)settings.AnimationMode;
+            CustomAnimationSpeedCombo.SelectedIndex = (int)settings.AnimationSpeed;
 
             CustomBackgroundEffectCombo.SelectedIndex = (int)settings.BackgroundEffect;
             CustomBackgroundScopeCombo.SelectedIndex = (int)settings.BackgroundEffectScope;
@@ -382,6 +383,16 @@ public partial class LyricsPage : INavigableView<LyricsViewModel>
         if (CustomAnimationModeCombo.SelectedIndex >= 0)
         {
             CustomSettings.Current.AnimationMode = (LyricsAnimationMode)CustomAnimationModeCombo.SelectedIndex;
+            CustomSettings.SaveSettings();
+        }
+    }
+
+    private void CustomAnimationSpeedCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isInitializing) return;
+        if (CustomAnimationSpeedCombo.SelectedIndex >= 0)
+        {
+            CustomSettings.Current.AnimationSpeed = (LyricsAnimationSpeed)CustomAnimationSpeedCombo.SelectedIndex;
             CustomSettings.SaveSettings();
         }
     }
