@@ -9,6 +9,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using AFMediaBar.Classes.Models;
 using AFMediaBar.Classes.Services.Lyrics;
+using AFMediaBar.Custom.Effects;
 using AFMediaBar.Custom.Settings;
 using AFMediaBar.Custom.Translation;
 using AFMediaBar.Custom.Utils;
@@ -17,29 +18,11 @@ namespace AFMediaBar.Custom.FloatingLyrics;
 
 /// <summary>
 /// Cửa sổ Bảng lời bài hát nổi (Floating Lyrics Window) đồng bộ theo nhạc,
-/// tự do di chuyển, thay đổi kích thước và tùy chỉnh độ trong suốt.
+/// tự do di chuyển, thay đổi kích thước, tùy chỉnh độ trong suốt, màu nền,
+/// màu chữ, tốc độ cuộn và hỗ trợ chế độ gắn liền với Media Bar.
 /// </summary>
 public sealed partial class FloatingLyricsWindow : Window
 {
-    private static readonly Brush ActiveBrush = new SolidColorBrush(Color.FromRgb(255, 255, 255));
-    private static readonly Brush ActiveAccentBrush = new SolidColorBrush(Color.FromRgb(76, 194, 255));
-    private static readonly Brush ActiveSecondaryBrush = new SolidColorBrush(Color.FromRgb(255, 213, 79)); // Vàng Gold
-    private static readonly Brush PastBrush = new SolidColorBrush(Color.FromArgb(135, 255, 255, 255));
-    private static readonly Brush PastSecondaryBrush = new SolidColorBrush(Color.FromArgb(110, 255, 213, 79));
-    private static readonly Brush FutureBrush = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255));
-    private static readonly Brush FutureSecondaryBrush = new SolidColorBrush(Color.FromArgb(90, 255, 213, 79));
-
-    static FloatingLyricsWindow()
-    {
-        ActiveBrush.Freeze();
-        ActiveAccentBrush.Freeze();
-        ActiveSecondaryBrush.Freeze();
-        PastBrush.Freeze();
-        PastSecondaryBrush.Freeze();
-        FutureBrush.Freeze();
-        FutureSecondaryBrush.Freeze();
-    }
-
     private readonly CustomSettingsManager _settingsManager;
     public ObservableCollection<FloatingLyricsItem> Items { get; } = new();
 
@@ -49,6 +32,15 @@ public sealed partial class FloatingLyricsWindow : Window
     private bool _isUserScrolling;
     private readonly DispatcherTimer _userScrollCooldownTimer;
     private readonly DispatcherTimer _saveGeometryTimer;
+    private Storyboard? _currentScrollStoryboard;
+
+    // Cache các Brush màu chữ
+    private Brush _activeBrush = Brushes.White;
+    private Brush _activeSecondaryBrush = new SolidColorBrush(Color.FromRgb(255, 213, 79)); // Gold
+    private Brush _pastBrush = new SolidColorBrush(Color.FromArgb(135, 255, 255, 255));
+    private Brush _pastSecondaryBrush = new SolidColorBrush(Color.FromArgb(110, 255, 213, 79));
+    private Brush _futureBrush = new SolidColorBrush(Color.FromArgb(110, 255, 255, 255));
+    private Brush _futureSecondaryBrush = new SolidColorBrush(Color.FromArgb(90, 255, 213, 79));
 
     public event Action<double>? SeekRequested;
     public event Action<bool>? VisibilityToggled;
@@ -81,6 +73,8 @@ public sealed partial class FloatingLyricsWindow : Window
             SaveGeometrySettings();
         };
 
+        ApplyThemeBrushes();
+        ApplyBackgroundAppearance();
         ApplySettings();
         RestoreGeometrySettings();
     }
@@ -90,6 +84,10 @@ public sealed partial class FloatingLyricsWindow : Window
         base.OnSourceInitialized(e);
         var source = PresentationSource.FromVisual(this) as HwndSource;
         source?.AddHook(WndProc);
+
+        // Đảm bảo cửa sổ không bao giờ che khuất taskbar khi Maximize
+        MaxHeight = SystemParameters.WorkArea.Height + 14;
+        MaxWidth = SystemParameters.WorkArea.Width + 14;
     }
 
     #region Window Resizing via Win32 WM_NCHITTEST
@@ -105,7 +103,7 @@ public sealed partial class FloatingLyricsWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WM_NCHITTEST)
+        if (msg == WM_NCHITTEST && WindowState == WindowState.Normal)
         {
             var pScreen = new Point((short)(lParam.ToInt64() & 0xFFFF), (short)((lParam.ToInt64() >> 16) & 0xFFFF));
             var pWindow = PointFromScreen(pScreen);
@@ -129,24 +127,108 @@ public sealed partial class FloatingLyricsWindow : Window
     }
     #endregion
 
+    #region Appearance and Background Customization
+    public void ApplyBackgroundAppearance()
+    {
+        var settings = _settingsManager.Current;
+        double opacity = Math.Clamp(settings.FloatingLyricsOpacity, 0.15, 1.0);
+
+        switch (settings.FloatingLyricsBgStyle)
+        {
+            case FloatingLyricsBackgroundStyle.Transparent:
+                // Trong suốt hoàn toàn: chỉ có chữ nổi trên màn hình
+                MainSurface.Background = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255 * 0.12), 0, 0, 0));
+                MainSurface.BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255 * 0.25), 255, 255, 255));
+                MainSurfaceShadow.Opacity = 0.0;
+                break;
+
+            case FloatingLyricsBackgroundStyle.SolidDark:
+                MainSurface.Background = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255), 15, 15, 18));
+                MainSurface.BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255 * 0.3), 255, 255, 255));
+                MainSurfaceShadow.Opacity = 0.55 * opacity;
+                break;
+
+            case FloatingLyricsBackgroundStyle.DarkSlate:
+                MainSurface.Background = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255), 30, 30, 36));
+                MainSurface.BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255 * 0.35), 255, 255, 255));
+                MainSurfaceShadow.Opacity = 0.55 * opacity;
+                break;
+
+            case FloatingLyricsBackgroundStyle.AcrylicGlass:
+            default:
+                // Kính mờ Acrylic
+                MainSurface.Background = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255 * 0.88), 24, 24, 28));
+                MainSurface.BorderBrush = new SolidColorBrush(Color.FromArgb((byte)(opacity * 255 * 0.35), 255, 255, 255));
+                MainSurfaceShadow.Opacity = 0.55 * opacity;
+                break;
+        }
+    }
+
+    private void ApplyThemeBrushes()
+    {
+        var settings = _settingsManager.Current;
+
+        Color activeColor = Color.FromRgb(255, 255, 255);
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(settings.FloatingLyricsActiveTextColor))
+            {
+                activeColor = (Color)ColorConverter.ConvertFromString(settings.FloatingLyricsActiveTextColor);
+            }
+        }
+        catch { }
+
+        _activeBrush = new SolidColorBrush(activeColor);
+        _activeBrush.Freeze();
+
+        _activeSecondaryBrush = new SolidColorBrush(Color.FromRgb(255, 213, 79));
+        _activeSecondaryBrush.Freeze();
+
+        _pastBrush = new SolidColorBrush(Color.FromArgb(135, activeColor.R, activeColor.G, activeColor.B));
+        _pastBrush.Freeze();
+
+        _futureBrush = new SolidColorBrush(Color.FromArgb(100, activeColor.R, activeColor.G, activeColor.B));
+        _futureBrush.Freeze();
+
+        _pastSecondaryBrush = new SolidColorBrush(Color.FromArgb(110, 255, 213, 79));
+        _pastSecondaryBrush.Freeze();
+
+        _futureSecondaryBrush = new SolidColorBrush(Color.FromArgb(85, 255, 213, 79));
+        _futureSecondaryBrush.Freeze();
+    }
+    #endregion
+
     #region Geometry and Settings Persistence
     private void ApplySettings()
     {
         var settings = _settingsManager.Current;
 
-        // Áp dụng độ trong suốt
-        double opacity = Math.Clamp(settings.FloatingLyricsOpacity, 0.2, 1.0);
-        MainSurface.Opacity = opacity;
-
-        // Áp dụng Topmost
         Topmost = settings.FloatingLyricsTopmost;
         PinGlyph.Text = Topmost ? "\uE718" : "\uE77A";
         PinButton.ToolTip = Topmost ? "Bỏ ghim (Hiện đang ghim trên cùng)" : "Ghim luôn hiển thị trên cùng";
+
+        UpdateDockButtonAppearance();
+    }
+
+    private void UpdateDockButtonAppearance()
+    {
+        var isAttached = _settingsManager.Current.FloatingLyricsAttachedToMediaBar;
+        DockGlyph.Text = isAttached ? "\uE8A7" : "\uE748";
+        DockButton.ToolTip = isAttached
+            ? "Tách thành bảng nổi tự do di chuyển (Hiện đang gắn liền Media Bar)"
+            : "Gắn liền phía trên Media Bar (Mở rộng Media Bar)";
     }
 
     private void RestoreGeometrySettings()
     {
         var settings = _settingsManager.Current;
+
+        if (settings.FloatingLyricsAttachedToMediaBar)
+        {
+            PositionAttachedToMediaBar();
+            return;
+        }
+
         if (!double.IsNaN(settings.FloatingLyricsWidth) && settings.FloatingLyricsWidth >= MinWidth)
         {
             Width = settings.FloatingLyricsWidth;
@@ -158,7 +240,6 @@ public sealed partial class FloatingLyricsWindow : Window
 
         if (!double.IsNaN(settings.FloatingLyricsLeft) && !double.IsNaN(settings.FloatingLyricsTop))
         {
-            // Kiểm tra xem vị trí có nằm trong vùng nhìn thấy của các màn hình hay không
             double virtualLeft = SystemParameters.VirtualScreenLeft;
             double virtualTop = SystemParameters.VirtualScreenTop;
             double virtualWidth = SystemParameters.VirtualScreenWidth;
@@ -184,17 +265,20 @@ public sealed partial class FloatingLyricsWindow : Window
         if (WindowState != WindowState.Normal) return;
 
         var settings = _settingsManager.Current;
-        settings.FloatingLyricsLeft = Left;
-        settings.FloatingLyricsTop = Top;
-        settings.FloatingLyricsWidth = Width;
-        settings.FloatingLyricsHeight = Height;
-        _settingsManager.SaveSettings();
+        if (!settings.FloatingLyricsAttachedToMediaBar)
+        {
+            settings.FloatingLyricsLeft = Left;
+            settings.FloatingLyricsTop = Top;
+            settings.FloatingLyricsWidth = Width;
+            settings.FloatingLyricsHeight = Height;
+            _settingsManager.SaveSettings();
+        }
     }
 
     protected override void OnLocationChanged(EventArgs e)
     {
         base.OnLocationChanged(e);
-        if (IsLoaded)
+        if (IsLoaded && !_settingsManager.Current.FloatingLyricsAttachedToMediaBar)
         {
             _saveGeometryTimer.Stop();
             _saveGeometryTimer.Start();
@@ -204,7 +288,7 @@ public sealed partial class FloatingLyricsWindow : Window
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
     {
         base.OnRenderSizeChanged(sizeInfo);
-        if (IsLoaded)
+        if (IsLoaded && !_settingsManager.Current.FloatingLyricsAttachedToMediaBar)
         {
             _saveGeometryTimer.Stop();
             _saveGeometryTimer.Start();
@@ -212,20 +296,107 @@ public sealed partial class FloatingLyricsWindow : Window
     }
     #endregion
 
-    #region Header Interactions
+    #region Attached Mode (Gắn liền Media Bar)
+    public void PositionAttachedToMediaBar()
+    {
+        double workWidth = SystemParameters.WorkArea.Width;
+        double workHeight = SystemParameters.WorkArea.Height;
+        double workLeft = SystemParameters.WorkArea.Left;
+        double workTop = SystemParameters.WorkArea.Top;
+
+        Width = Math.Clamp(workWidth * 0.42, 440, 680);
+        Height = Math.Clamp(workHeight * 0.65, 460, 720);
+
+        // Canh giữa màn hình theo phương ngang, neo sát mép trên thanh Taskbar
+        Left = workLeft + ((workWidth - Width) / 2.0);
+        Top = workTop + workHeight - Height - 8;
+
+        WindowStartupLocation = WindowStartupLocation.Manual;
+    }
+
+    private void DockButton_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _settingsManager.Current;
+        settings.FloatingLyricsAttachedToMediaBar = !settings.FloatingLyricsAttachedToMediaBar;
+        _settingsManager.SaveSettings();
+
+        UpdateDockButtonAppearance();
+
+        if (settings.FloatingLyricsAttachedToMediaBar)
+        {
+            if (WindowState == WindowState.Maximized)
+            {
+                ToggleMaximize();
+            }
+            PositionAttachedToMediaBar();
+        }
+        else
+        {
+            RestoreGeometrySettings();
+        }
+    }
+    #endregion
+
+    #region Header Interactions & Maximize
     private void HeaderBorder_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ButtonState == MouseButtonState.Pressed)
+        // Nhấp đúp vào Header để chuyển đổi Toàn màn hình / Khôi phục
+        if (e.ClickCount == 2)
         {
+            ToggleMaximize();
+            return;
+        }
+
+        if (e.ButtonState == MouseButtonState.Pressed && WindowState == WindowState.Normal)
+        {
+            // Nếu đang ở chế độ Attached mà người dùng kéo đi, tự động chuyển về chế độ bảng nổi tự do
+            if (_settingsManager.Current.FloatingLyricsAttachedToMediaBar)
+            {
+                _settingsManager.Current.FloatingLyricsAttachedToMediaBar = false;
+                _settingsManager.SaveSettings();
+                UpdateDockButtonAppearance();
+            }
+
             try
             {
                 DragMove();
             }
-            catch
-            {
-                // Bỏ qua ngoại lệ nếu chuột nhả quá nhanh
-            }
+            catch { }
         }
+    }
+
+    private void MaximizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleMaximize();
+    }
+
+    private void ToggleMaximize()
+    {
+        if (WindowState == WindowState.Maximized)
+        {
+            WindowState = WindowState.Normal;
+            RootContainer.Margin = new Thickness(10);
+            ResizeGripIcon.Visibility = Visibility.Visible;
+            MaximizeGlyph.Text = "\uE922";
+            MaximizeButton.ToolTip = "Phóng to toàn màn hình (hoặc nhấp đúp tiêu đề)";
+        }
+        else
+        {
+            if (_settingsManager.Current.FloatingLyricsAttachedToMediaBar)
+            {
+                _settingsManager.Current.FloatingLyricsAttachedToMediaBar = false;
+                _settingsManager.SaveSettings();
+                UpdateDockButtonAppearance();
+            }
+
+            WindowState = WindowState.Maximized;
+            RootContainer.Margin = new Thickness(0);
+            ResizeGripIcon.Visibility = Visibility.Collapsed;
+            MaximizeGlyph.Text = "\uE923";
+            MaximizeButton.ToolTip = "Khôi phục kích thước (hoặc nhấp đúp tiêu đề)";
+        }
+
+        ScrollToActiveLine(animate: false);
     }
 
     public void ToggleVisibility()
@@ -244,6 +415,12 @@ public sealed partial class FloatingLyricsWindow : Window
             _settingsManager.Current.EnableFloatingLyrics = true;
             _settingsManager.SaveSettings();
             VisibilityToggled?.Invoke(true);
+
+            if (_settingsManager.Current.FloatingLyricsAttachedToMediaBar)
+            {
+                PositionAttachedToMediaBar();
+            }
+
             ScrollToActiveLine(animate: false);
         }
     }
@@ -313,45 +490,187 @@ public sealed partial class FloatingLyricsWindow : Window
         menu.IsOpen = true;
     }
 
-    private void OpacityButton_Click(object sender, RoutedEventArgs e)
+    private void BackgroundButton_Click(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu();
-        var currentOpacity = _settingsManager.Current.FloatingLyricsOpacity;
+        var settings = _settingsManager.Current;
+
+        // 1. Nhóm Dạng nền
+        var bgStyleMenu = new MenuItem { Header = "Dạng nền (Background Style)" };
+
+        void AddStyleItem(string label, FloatingLyricsBackgroundStyle style)
+        {
+            var mi = new MenuItem
+            {
+                Header = label,
+                IsChecked = settings.FloatingLyricsBgStyle == style,
+                IsCheckable = true
+            };
+            mi.Click += (s, ev) =>
+            {
+                settings.FloatingLyricsBgStyle = style;
+                _settingsManager.SaveSettings();
+                ApplyBackgroundAppearance();
+            };
+            bgStyleMenu.Items.Add(mi);
+        }
+
+        AddStyleItem("Kính mờ Fluent / Acrylic (Mặc định)", FloatingLyricsBackgroundStyle.AcrylicGlass);
+        AddStyleItem("Trong suốt hoàn toàn (Chỉ nổi chữ lên Desktop)", FloatingLyricsBackgroundStyle.Transparent);
+        AddStyleItem("Nền tối đồng màu (Solid Black)", FloatingLyricsBackgroundStyle.SolidDark);
+        AddStyleItem("Xám hiện đại (Dark Slate)", FloatingLyricsBackgroundStyle.DarkSlate);
+        menu.Items.Add(bgStyleMenu);
+
+        // 2. Nhóm Độ trong suốt (Opacity)
+        var opacityMenu = new MenuItem { Header = "Độ trong suốt (Opacity)" };
 
         void AddOpacityItem(string label, double value)
         {
-            var item = new MenuItem
+            var mi = new MenuItem
             {
                 Header = label,
-                IsChecked = Math.Abs(currentOpacity - value) < 0.05,
+                IsChecked = Math.Abs(settings.FloatingLyricsOpacity - value) < 0.05,
                 IsCheckable = true
             };
-            item.Click += (s, ev) =>
+            mi.Click += (s, ev) =>
             {
-                _settingsManager.Current.FloatingLyricsOpacity = value;
+                settings.FloatingLyricsOpacity = value;
                 _settingsManager.SaveSettings();
-                MainSurface.Opacity = value;
+                ApplyBackgroundAppearance();
             };
-            menu.Items.Add(item);
+            opacityMenu.Items.Add(mi);
         }
 
         AddOpacityItem("100% (Đậm nhất)", 1.0);
-        AddOpacityItem("90% (Tiêu chuẩn)", 0.90);
-        AddOpacityItem("80% (Hơi mờ)", 0.80);
-        AddOpacityItem("70% (Mờ)", 0.70);
+        AddOpacityItem("85% (Tiêu chuẩn)", 0.85);
+        AddOpacityItem("70% (Mờ nhẹ)", 0.70);
         AddOpacityItem("50% (Trong suốt)", 0.50);
-        AddOpacityItem("35% (Rất trong suốt)", 0.35);
+        AddOpacityItem("30% (Rất trong suốt)", 0.30);
+        AddOpacityItem("15% (Cực mờ)", 0.15);
+        menu.Items.Add(opacityMenu);
 
-        menu.PlacementTarget = OpacityButton;
+        // 3. Nhóm Hiệu ứng hạt nền
+        var effectMenu = new MenuItem { Header = "Hiệu ứng hạt nền (Background Effect)" };
+
+        void AddEffectItem(string label, LyricsBackgroundEffectType effect)
+        {
+            var mi = new MenuItem
+            {
+                Header = label,
+                IsChecked = settings.FloatingLyricsBgEffect == effect,
+                IsCheckable = true
+            };
+            mi.Click += (s, ev) =>
+            {
+                settings.FloatingLyricsBgEffect = effect;
+                settings.BackgroundEffect = effect;
+                _settingsManager.SaveSettings();
+            };
+            effectMenu.Items.Add(mi);
+        }
+
+        AddEffectItem("Tắt hiệu ứng hạt", LyricsBackgroundEffectType.None);
+        effectMenu.Items.Add(new Separator());
+        AddEffectItem("Hoa anh đào rơi (Sakura)", LyricsBackgroundEffectType.Sakura);
+        AddEffectItem("Tuyết rơi êm đềm (Snow)", LyricsBackgroundEffectType.Snow);
+        AddEffectItem("Mưa rơi (Rain)", LyricsBackgroundEffectType.Rain);
+        AddEffectItem("Lá thu bay (Autumn Leaves)", LyricsBackgroundEffectType.AutumnLeaves);
+        AddEffectItem("Đom đóm mùa hè (Fireflies)", LyricsBackgroundEffectType.Fireflies);
+        AddEffectItem("Bụi sao tinh tú (Starfield)", LyricsBackgroundEffectType.Starfield);
+        AddEffectItem("Bong bóng nổi (Floating Bubbles)", LyricsBackgroundEffectType.FloatingBubbles);
+        AddEffectItem("Dải cực quang (Aurora Wave)", LyricsBackgroundEffectType.AuroraWave);
+        menu.Items.Add(effectMenu);
+
+        menu.PlacementTarget = BackgroundButton;
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
         menu.IsOpen = true;
     }
 
-    private void FontSizeButton_Click(object sender, RoutedEventArgs e)
+    private void TextStyleButton_Click(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu();
-        var currentSize = _settingsManager.Current.FloatingLyricsFontSize;
+        var settings = _settingsManager.Current;
 
+        // 1. Màu chữ câu đang hát
+        var activeColorMenu = new MenuItem { Header = "Màu chữ câu đang hát (Active Color)" };
+
+        void AddColorItem(string label, string hexColor)
+        {
+            var mi = new MenuItem
+            {
+                Header = label,
+                IsChecked = string.Equals(settings.FloatingLyricsActiveTextColor, hexColor, StringComparison.OrdinalIgnoreCase),
+                IsCheckable = true
+            };
+            mi.Click += (s, ev) =>
+            {
+                settings.FloatingLyricsActiveTextColor = hexColor;
+                _settingsManager.SaveSettings();
+                ApplyThemeBrushes();
+                UpdateLyricsBrushes();
+            };
+            activeColorMenu.Items.Add(mi);
+        }
+
+        AddColorItem("Trắng sáng (#FFFFFF)", "#FFFFFF");
+        AddColorItem("Vàng Gold (#FFD54F)", "#FFD54F");
+        AddColorItem("Xanh Accent (#4CC2FF)", "#4CC2FF");
+        AddColorItem("Xanh ngọc Mint (#4ADE80)", "#4ADE80");
+        AddColorItem("Tím Pastel (#C084FC)", "#C084FC");
+        AddColorItem("Hồng Neon (#F472B6)", "#F472B6");
+        menu.Items.Add(activeColorMenu);
+
+        // 2. Tốc độ cuộn lời bài hát
+        var scrollSpeedMenu = new MenuItem { Header = "Tốc độ cuộn (Scroll Speed)" };
+
+        void AddSpeedItem(string label, FloatingLyricsScrollSpeed speed)
+        {
+            var mi = new MenuItem
+            {
+                Header = label,
+                IsChecked = settings.FloatingLyricsScrollSpeed == speed,
+                IsCheckable = true
+            };
+            mi.Click += (s, ev) =>
+            {
+                settings.FloatingLyricsScrollSpeed = speed;
+                _settingsManager.SaveSettings();
+            };
+            scrollSpeedMenu.Items.Add(mi);
+        }
+
+        AddSpeedItem("Nhanh (250ms)", FloatingLyricsScrollSpeed.Fast);
+        AddSpeedItem("Vừa phải (450ms - Mặc định)", FloatingLyricsScrollSpeed.Normal);
+        AddSpeedItem("Chậm rãi / Mượt mà (700ms)", FloatingLyricsScrollSpeed.Smooth);
+        menu.Items.Add(scrollSpeedMenu);
+
+        // 3. Hiệu ứng cuộn (Scroll Easing)
+        var scrollEasingMenu = new MenuItem { Header = "Hiệu ứng chuyển động cuộn (Scroll Easing)" };
+
+        void AddEasingItem(string label, FloatingLyricsScrollEasing easing)
+        {
+            var mi = new MenuItem
+            {
+                Header = label,
+                IsChecked = settings.FloatingLyricsScrollEasing == easing,
+                IsCheckable = true
+            };
+            mi.Click += (s, ev) =>
+            {
+                settings.FloatingLyricsScrollEasing = easing;
+                _settingsManager.SaveSettings();
+            };
+            scrollEasingMenu.Items.Add(mi);
+        }
+
+        AddEasingItem("Mượt mà (CubicEase Out - Apple Music style)", FloatingLyricsScrollEasing.Cubic);
+        AddEasingItem("Êm dịu (QuadraticEase Out)", FloatingLyricsScrollEasing.Quadratic);
+        AddEasingItem("Đều đặn (Linear)", FloatingLyricsScrollEasing.Linear);
+        menu.Items.Add(scrollEasingMenu);
+
+        menu.Items.Add(new Separator());
+
+        // 4. Điều chỉnh cỡ chữ
         var increase = new MenuItem { Header = "Phóng to chữ (+2 pt)" };
         increase.Click += (s, ev) => ChangeFontSize(2.0);
         menu.Items.Add(increase);
@@ -359,7 +678,7 @@ public sealed partial class FloatingLyricsWindow : Window
         var reset = new MenuItem { Header = "Cỡ chữ mặc định (18 pt)" };
         reset.Click += (s, ev) =>
         {
-            _settingsManager.Current.FloatingLyricsFontSize = 18.0;
+            settings.FloatingLyricsFontSize = 18.0;
             _settingsManager.SaveSettings();
             ApplyFontSize(18.0);
         };
@@ -369,14 +688,14 @@ public sealed partial class FloatingLyricsWindow : Window
         decrease.Click += (s, ev) => ChangeFontSize(-2.0);
         menu.Items.Add(decrease);
 
-        menu.PlacementTarget = FontSizeButton;
+        menu.PlacementTarget = TextStyleButton;
         menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
         menu.IsOpen = true;
     }
 
     private void ChangeFontSize(double delta)
     {
-        var newSize = Math.Clamp(_settingsManager.Current.FloatingLyricsFontSize + delta, 12.0, 32.0);
+        var newSize = Math.Clamp(_settingsManager.Current.FloatingLyricsFontSize + delta, 12.0, 36.0);
         _settingsManager.Current.FloatingLyricsFontSize = newSize;
         _settingsManager.SaveSettings();
         ApplyFontSize(newSize);
@@ -478,11 +797,34 @@ public sealed partial class FloatingLyricsWindow : Window
                 PrimaryText = primaryText,
                 SecondaryText = secondaryText,
                 FontSize = baseFontSize,
-                PrimaryForeground = FutureBrush,
-                SecondaryForeground = FutureSecondaryBrush
+                PrimaryForeground = _futureBrush,
+                SecondaryForeground = _futureSecondaryBrush
             };
 
             Items.Add(item);
+        }
+    }
+
+    private void UpdateLyricsBrushes()
+    {
+        for (int i = 0; i < Items.Count; i++)
+        {
+            var item = Items[i];
+            if (i < _lastActiveIndex)
+            {
+                item.PrimaryForeground = _pastBrush;
+                item.SecondaryForeground = _pastSecondaryBrush;
+            }
+            else if (i == _lastActiveIndex)
+            {
+                item.PrimaryForeground = _activeBrush;
+                item.SecondaryForeground = _activeSecondaryBrush;
+            }
+            else
+            {
+                item.PrimaryForeground = _futureBrush;
+                item.SecondaryForeground = _futureSecondaryBrush;
+            }
         }
     }
 
@@ -501,22 +843,22 @@ public sealed partial class FloatingLyricsWindow : Window
                 {
                     item.IsActive = false;
                     item.IsPast = true;
-                    item.PrimaryForeground = PastBrush;
-                    item.SecondaryForeground = PastSecondaryBrush;
+                    item.PrimaryForeground = _pastBrush;
+                    item.SecondaryForeground = _pastSecondaryBrush;
                 }
                 else if (i == activeIndex)
                 {
                     item.IsActive = true;
                     item.IsPast = false;
-                    item.PrimaryForeground = ActiveBrush;
-                    item.SecondaryForeground = ActiveSecondaryBrush;
+                    item.PrimaryForeground = _activeBrush;
+                    item.SecondaryForeground = _activeSecondaryBrush;
                 }
                 else
                 {
                     item.IsActive = false;
                     item.IsPast = false;
-                    item.PrimaryForeground = FutureBrush;
-                    item.SecondaryForeground = FutureSecondaryBrush;
+                    item.PrimaryForeground = _futureBrush;
+                    item.SecondaryForeground = _futureSecondaryBrush;
                 }
             }
 
@@ -535,8 +877,8 @@ public sealed partial class FloatingLyricsWindow : Window
             if (activeItem.Line.Words != null && activeItem.Line.Words.Count > 0)
             {
                 double progress = CalculateProgress(activeItem.Line, currentSeconds);
-                // Quét màu vàng nổi bật hoặc trắng
-                var karaokeBrush = KaraokeBrushHelper.CreateKaraokeBrush(Color.FromRgb(255, 213, 79), progress, false);
+                Color activeColor = (_activeBrush as SolidColorBrush)?.Color ?? Color.FromRgb(255, 213, 79);
+                var karaokeBrush = KaraokeBrushHelper.CreateKaraokeBrush(activeColor, progress, false);
                 activeItem.PrimaryForeground = karaokeBrush;
             }
         }
@@ -600,11 +942,19 @@ public sealed partial class FloatingLyricsWindow : Window
 
         if (container == null) return;
 
-        // Tính toán khoảng cách để đưa câu đang hát vào khoảng 35-40% chiều cao của khung nhìn
-        var transform = container.TransformToAncestor(LyricsScrollViewer);
-        var itemRect = transform.TransformBounds(new Rect(0, 0, container.ActualWidth, container.ActualHeight));
-        double targetOffset = LyricsScrollViewer.VerticalOffset + itemRect.Top - (LyricsScrollViewer.ViewportHeight * 0.38);
+        // Tọa độ Y tuyệt đối của dòng hát bên trong LyricsItemsList (bất biến, không bị ảnh hưởng bởi animation đang chạy)
+        Point relativePoint;
+        try
+        {
+            relativePoint = container.TransformToAncestor(LyricsItemsList).Transform(new Point(0, 0));
+        }
+        catch
+        {
+            return;
+        }
 
+        double itemCenterY = relativePoint.Y + (container.ActualHeight * 0.5);
+        double targetOffset = itemCenterY - (LyricsScrollViewer.ViewportHeight * 0.38);
         targetOffset = Math.Clamp(targetOffset, 0, LyricsScrollViewer.ScrollableHeight);
 
         if (animate)
@@ -613,24 +963,53 @@ public sealed partial class FloatingLyricsWindow : Window
         }
         else
         {
+            _currentScrollStoryboard?.Stop();
+            _currentScrollStoryboard = null;
             LyricsScrollViewer.ScrollToVerticalOffset(targetOffset);
         }
     }
 
     private void AnimateScrollTo(double targetOffset)
     {
+        _currentScrollStoryboard?.Stop();
+
+        var settings = _settingsManager.Current;
+        var durationMs = settings.FloatingLyricsScrollSpeed switch
+        {
+            FloatingLyricsScrollSpeed.Fast => 250,
+            FloatingLyricsScrollSpeed.Smooth => 700,
+            _ => 450
+        };
+
+        IEasingFunction? easing = settings.FloatingLyricsScrollEasing switch
+        {
+            FloatingLyricsScrollEasing.Quadratic => new QuadraticEase { EasingMode = EasingMode.EaseOut },
+            FloatingLyricsScrollEasing.Linear => null,
+            _ => new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+
         var animation = new DoubleAnimation
         {
             From = LyricsScrollViewer.VerticalOffset,
             To = targetOffset,
-            Duration = TimeSpan.FromMilliseconds(450),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            Duration = TimeSpan.FromMilliseconds(durationMs)
         };
+        if (easing != null)
+        {
+            animation.EasingFunction = easing;
+        }
 
         var storyboard = new Storyboard();
         storyboard.Children.Add(animation);
         Storyboard.SetTarget(animation, LyricsScrollViewer);
         Storyboard.SetTargetProperty(animation, new PropertyPath(AnimatedOffsetProperty));
+
+        storyboard.Completed += (s, e) =>
+        {
+            _currentScrollStoryboard = null;
+        };
+
+        _currentScrollStoryboard = storyboard;
         storyboard.Begin();
     }
 

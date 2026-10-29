@@ -351,6 +351,54 @@ public enum FloatingLyricsDisplayMode
 }
 
 /// <summary>
+/// Dạng nền của Bảng lời bài hát nổi.
+/// </summary>
+public enum FloatingLyricsBackgroundStyle
+{
+    /// <summary>Kính mờ Fluent / Acrylic (Mặc định).</summary>
+    AcrylicGlass = 0,
+
+    /// <summary>Trong suốt hoàn toàn (Chỉ nổi chữ lên màn hình).</summary>
+    Transparent = 1,
+
+    /// <summary>Nền tối đồng màu (Solid Black).</summary>
+    SolidDark = 2,
+
+    /// <summary>Xám hiện đại (Dark Slate).</summary>
+    DarkSlate = 3
+}
+
+/// <summary>
+/// Hiệu ứng chuyển động khi cuộn lời bài hát trên Bảng nổi.
+/// </summary>
+public enum FloatingLyricsScrollEasing
+{
+    /// <summary>Mượt mà (CubicEase Out - Giống Apple Music / Spotify).</summary>
+    Cubic = 0,
+
+    /// <summary>Êm dịu (QuadraticEase Out).</summary>
+    Quadratic = 1,
+
+    /// <summary>Đều đặn (Linear).</summary>
+    Linear = 2
+}
+
+/// <summary>
+/// Tốc độ cuộn khi chuyển câu trên Bảng nổi.
+/// </summary>
+public enum FloatingLyricsScrollSpeed
+{
+    /// <summary>Nhanh (250ms).</summary>
+    Fast = 0,
+
+    /// <summary>Vừa phải (450ms - Mặc định).</summary>
+    Normal = 1,
+
+    /// <summary>Chậm rãi / Mượt mà (700ms).</summary>
+    Smooth = 2
+}
+
+/// <summary>
 /// Động cơ kết xuất lời bài hát trên Taskbar chính.
 /// </summary>
 public enum LyricsRenderingEngine
@@ -545,6 +593,30 @@ public sealed class CustomSettings
 
     /// <summary>Cỡ chữ cơ sở cho câu đang hát trên Bảng nổi (DIP, mặc định 18).</summary>
     public double FloatingLyricsFontSize { get; set; } = 18.0;
+
+    /// <summary>Dạng nền của Bảng lời bài hát nổi.</summary>
+    public FloatingLyricsBackgroundStyle FloatingLyricsBgStyle { get; set; } = FloatingLyricsBackgroundStyle.AcrylicGlass;
+
+    /// <summary>Màu nền tùy chọn (mã HEX).</summary>
+    public string FloatingLyricsCustomBgColor { get; set; } = "#E618181C";
+
+    /// <summary>Hiệu ứng hạt nền trên Bảng lời bài hát nổi.</summary>
+    public LyricsBackgroundEffectType FloatingLyricsBgEffect { get; set; } = LyricsBackgroundEffectType.None;
+
+    /// <summary>Màu chữ câu đang hát (mã HEX, mặc định #FFFFFF).</summary>
+    public string FloatingLyricsActiveTextColor { get; set; } = "#FFFFFF";
+
+    /// <summary>Màu chữ câu chưa hát (mã HEX, mặc định #80FFFFFF).</summary>
+    public string FloatingLyricsInactiveTextColor { get; set; } = "#80FFFFFF";
+
+    /// <summary>Hiệu ứng chuyển động cuộn lời bài hát.</summary>
+    public FloatingLyricsScrollEasing FloatingLyricsScrollEasing { get; set; } = FloatingLyricsScrollEasing.Cubic;
+
+    /// <summary>Tốc độ cuộn khi chuyển câu trên Bảng nổi.</summary>
+    public FloatingLyricsScrollSpeed FloatingLyricsScrollSpeed { get; set; } = FloatingLyricsScrollSpeed.Normal;
+
+    /// <summary>Gắn liền / neo vào Media Bar trên Taskbar (Attached Flyout Mode).</summary>
+    public bool FloatingLyricsAttachedToMediaBar { get; set; } = false;
 }
 
 /// <summary>

@@ -118,21 +118,29 @@ public sealed class FloatingLyricsCoordinator : IDisposable
 
         if (snapshot.Lyrics?.Document.Lines.Count is not > 0)
         {
-            _window.SetLyrics(null, false);
-            if (!snapshot.IsPlaying) _syncTimer.Stop();
+            if (_activeDocument == null)
+            {
+                _window.SetLyrics(null, false);
+                if (!snapshot.IsPlaying) _syncTimer.Stop();
+            }
             return;
         }
 
         _bilingualLyricsManager.ProcessLyrics(trackKey, snapshot.Lyrics.Document);
 
-        _activeDocument = string.Equals(BilingualLyricsManager.ActiveTrackKey, trackKey, StringComparison.Ordinal)
+        var newDoc = string.Equals(BilingualLyricsManager.ActiveTrackKey, trackKey, StringComparison.Ordinal)
             ? BilingualLyricsManager.ActiveEnrichedDocument ?? snapshot.Lyrics.Document
             : snapshot.Lyrics.Document;
 
-        _isCurrentTrackVietnamese = (string.Equals(BilingualLyricsManager.ActiveTrackKey, trackKey, StringComparison.Ordinal) && BilingualLyricsManager.ActiveIsVietnamese)
-            || (_activeDocument?.Lines != null && BilingualLyricsManager.IsVietnameseContent(_activeDocument.Lines));
+        bool isVietnamese = (string.Equals(BilingualLyricsManager.ActiveTrackKey, trackKey, StringComparison.Ordinal) && BilingualLyricsManager.ActiveIsVietnamese)
+            || (newDoc?.Lines != null && BilingualLyricsManager.IsVietnameseContent(newDoc.Lines));
 
-        _window.SetLyrics(_activeDocument, _isCurrentTrackVietnamese);
+        if (!ReferenceEquals(_activeDocument, newDoc) || _isCurrentTrackVietnamese != isVietnamese)
+        {
+            _activeDocument = newDoc;
+            _isCurrentTrackVietnamese = isVietnamese;
+            _window.SetLyrics(_activeDocument, _isCurrentTrackVietnamese);
+        }
 
         if (snapshot.IsPlaying && _window.IsVisible)
         {
