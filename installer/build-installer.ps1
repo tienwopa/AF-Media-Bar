@@ -94,6 +94,7 @@ function Resolve-Iscc {
     $candidates = @()
     foreach ($root in @(${env:ProgramFiles(x86)}, $env:ProgramFiles, (Join-Path $env:LOCALAPPDATA 'Programs'))) {
         if ($root) {
+            $candidates += (Join-Path $root 'Inno Setup 7\ISCC.exe')
             $candidates += (Join-Path $root 'Inno Setup 6\ISCC.exe')
         }
     }
