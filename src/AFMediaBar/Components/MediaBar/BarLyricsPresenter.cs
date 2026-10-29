@@ -726,6 +726,7 @@ public partial class TaskBarMediaControl
         private string? _lastWpfLine1Text;
         private string? _lastWpfLine2Text;
         private double _lastAppliedWpfProgress = -1;
+        private bool _isWpfRollingAnimationRunning;
 
         private void UpdateWpfNativeLyricsPresentation(LyricsPresentationFrame presentation, LyricsPresentationFrame previous)
         {
@@ -739,30 +740,6 @@ public partial class TaskBarMediaControl
 
             bool line1Changed = !string.Equals(_lastWpfLine1Text, line1Text, StringComparison.Ordinal);
             bool line2Changed = !string.Equals(_lastWpfLine2Text, secondaryText, StringComparison.Ordinal);
-
-            if (line1Changed)
-            {
-                _owner.LyricsWpfLine1Text.Text = line1Text;
-                _lastWpfLine1Text = line1Text;
-                _lastAppliedWpfProgress = -1;
-            }
-
-            if (isTwoLines)
-            {
-                if (_owner.LyricsWpfLine2Viewport.Visibility != Visibility.Visible)
-                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Visible;
-
-                if (line2Changed)
-                {
-                    _owner.LyricsWpfLine2Text.Text = secondaryText ?? string.Empty;
-                    _lastWpfLine2Text = secondaryText;
-                }
-            }
-            else
-            {
-                if (_owner.LyricsWpfLine2Viewport.Visibility != Visibility.Collapsed)
-                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
-            }
 
             // Cỡ chữ và chiều cao dòng bảo đảm không bị tràn / cắt mép Taskbar
             var fontSize1 = _owner.EffectiveLyricFontSize;
@@ -785,21 +762,20 @@ public partial class TaskBarMediaControl
 
                 _owner.LyricsWpfLine1Text.LineHeight = fontSize1 * 1.15;
                 _owner.LyricsWpfLine2Text.LineHeight = fontSize2 * 1.15;
+                _owner.LyricsWpfIncoming1Text.LineHeight = fontSize1 * 1.15;
+                _owner.LyricsWpfIncoming2Text.LineHeight = fontSize2 * 1.15;
                 _owner.LyricsWpfLine2Viewport.Margin = new Thickness(0, 0, 0, 0);
             }
             else
             {
                 _owner.LyricsWpfLine1Text.LineHeight = double.NaN;
+                _owner.LyricsWpfIncoming1Text.LineHeight = double.NaN;
             }
 
             if (_owner.LyricsWpfLine1Text.FontSize != fontSize1) _owner.LyricsWpfLine1Text.FontSize = fontSize1;
             if (_owner.LyricsWpfLine2Text.FontSize != fontSize2) _owner.LyricsWpfLine2Text.FontSize = fontSize2;
-
-            if (line1Changed || line2Changed)
-            {
-                var duration = CustomSettings.GetAnimationDuration(customSettings.AnimationSpeed);
-                TriggerWpfNativeAnimation(customSettings.AnimationMode, duration);
-            }
+            if (_owner.LyricsWpfIncoming1Text.FontSize != fontSize1) _owner.LyricsWpfIncoming1Text.FontSize = fontSize1;
+            if (_owner.LyricsWpfIncoming2Text.FontSize != fontSize2) _owner.LyricsWpfIncoming2Text.FontSize = fontSize2;
 
             // Đổ bóng chữ
             var shadowColor = _lyricsUsesLightText ? Colors.Black : Colors.White;
@@ -810,24 +786,31 @@ public partial class TaskBarMediaControl
                 _owner.LyricsWpfLine1Shadow.Color = shadowColor;
                 _owner.LyricsWpfLine2Shadow.Opacity = shadowOpacity;
                 _owner.LyricsWpfLine2Shadow.Color = shadowColor;
+                _owner.LyricsWpfIncoming1Shadow.Opacity = shadowOpacity;
+                _owner.LyricsWpfIncoming1Shadow.Color = shadowColor;
+                _owner.LyricsWpfIncoming2Shadow.Opacity = shadowOpacity;
+                _owner.LyricsWpfIncoming2Shadow.Color = shadowColor;
             }
 
-            // Màu chữ / Karaoke Brush
+            // Màu chữ cơ bản
             var baseColor = (_lyricsForeground as SolidColorBrush)?.Color ?? (_lyricsUsesLightText ? Colors.White : Colors.Black);
-            if (presentation.WordScanProgress.HasValue && presentation.WordScanProgress.Value >= 0 && presentation.WordScanProgress.Value <= 1)
+            if (!_isWpfRollingAnimationRunning)
             {
-                var progress = presentation.WordScanProgress.Value;
-                if (line1Changed || Math.Abs(progress - _lastAppliedWpfProgress) >= 0.005)
+                if (presentation.WordScanProgress.HasValue && presentation.WordScanProgress.Value >= 0 && presentation.WordScanProgress.Value <= 1)
                 {
-                    _owner.LyricsWpfLine1Text.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(baseColor, progress, _lyricsUsesLightText);
-                    _lastAppliedWpfProgress = progress;
+                    var progress = presentation.WordScanProgress.Value;
+                    if (line1Changed || Math.Abs(progress - _lastAppliedWpfProgress) >= 0.005)
+                    {
+                        _owner.LyricsWpfLine1Text.Foreground = KaraokeBrushHelper.CreateKaraokeBrush(baseColor, progress, _lyricsUsesLightText);
+                        _lastAppliedWpfProgress = progress;
+                    }
                 }
-            }
-            else
-            {
-                if (_owner.LyricsWpfLine1Text.Foreground != _lyricsForeground)
-                    _owner.LyricsWpfLine1Text.Foreground = _lyricsForeground;
-                _lastAppliedWpfProgress = -1;
+                else
+                {
+                    if (_owner.LyricsWpfLine1Text.Foreground != _lyricsForeground)
+                        _owner.LyricsWpfLine1Text.Foreground = _lyricsForeground;
+                    _lastAppliedWpfProgress = -1;
+                }
             }
 
             if (isTwoLines)
@@ -836,6 +819,7 @@ public partial class TaskBarMediaControl
                 secondaryBrush.Opacity = SystemParameters.HighContrast ? 1.0 : 0.72;
                 if (secondaryBrush.CanFreeze) secondaryBrush.Freeze();
                 _owner.LyricsWpfLine2Text.Foreground = secondaryBrush;
+                _owner.LyricsWpfIncoming2Text.Foreground = secondaryBrush;
             }
 
             // Căn lề & Cuộn ngang cho câu dài
@@ -846,22 +830,256 @@ public partial class TaskBarMediaControl
                 _ => HorizontalAlignment.Center
             };
 
-            KaraokeLineScrollHelper.Update(
-                _owner.LyricsWpfLine1Viewport,
-                _owner.LyricsWpfLine1Text,
-                presentation.ScrollProgress ?? double.NaN,
-                align,
-                line1Changed);
-
-            if (isTwoLines)
+            // Nếu câu hát thay đổi:
+            if (line1Changed || line2Changed)
             {
+                if (_lastWpfLine1Text == null)
+                {
+                    // Lần đầu tiên phát nhạc: Hiển thị ngay lập tức và fade in nhẹ
+                    _owner.LyricsWpfLine1Text.Text = line1Text;
+                    _lastWpfLine1Text = line1Text;
+                    _lastAppliedWpfProgress = -1;
+
+                    if (isTwoLines)
+                    {
+                        _owner.LyricsWpfLine2Text.Text = secondaryText ?? string.Empty;
+                        _lastWpfLine2Text = secondaryText;
+                        _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
+                        _lastWpfLine2Text = string.Empty;
+                    }
+
+                    KaraokeLineScrollHelper.Update(
+                        _owner.LyricsWpfLine1Viewport,
+                        _owner.LyricsWpfLine1Text,
+                        presentation.ScrollProgress ?? double.NaN,
+                        align,
+                        true);
+
+                    if (isTwoLines)
+                    {
+                        KaraokeLineScrollHelper.Update(
+                            _owner.LyricsWpfLine2Viewport,
+                            _owner.LyricsWpfLine2Text,
+                            double.NaN,
+                            align,
+                            true);
+                    }
+
+                    var duration = CustomSettings.GetAnimationDuration(customSettings.AnimationSpeed);
+                    TriggerWpfNativeAnimation(LyricsAnimationMode.FadeOnly, duration);
+                    return;
+                }
+
+                // Chế độ cuộn mượt chuẩn WebView (SlideUp)
+                if (customSettings.AnimationMode == LyricsAnimationMode.SlideUp)
+                {
+                    ExecuteWpfRollTransition(line1Text, secondaryText, isTwoLines, align, customSettings);
+                    return;
+                }
+                else if (customSettings.AnimationMode == LyricsAnimationMode.None)
+                {
+                    _owner.LyricsWpfLine1Text.Text = line1Text;
+                    _lastWpfLine1Text = line1Text;
+                    _lastAppliedWpfProgress = -1;
+
+                    if (isTwoLines)
+                    {
+                        _owner.LyricsWpfLine2Text.Text = secondaryText ?? string.Empty;
+                        _lastWpfLine2Text = secondaryText;
+                        _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
+                        _lastWpfLine2Text = string.Empty;
+                    }
+                }
+                else
+                {
+                    // Các chế độ SlideHorizontal / ZoomIn / Fade
+                    _owner.LyricsWpfLine1Text.Text = line1Text;
+                    _lastWpfLine1Text = line1Text;
+                    _lastAppliedWpfProgress = -1;
+
+                    if (isTwoLines)
+                    {
+                        _owner.LyricsWpfLine2Text.Text = secondaryText ?? string.Empty;
+                        _lastWpfLine2Text = secondaryText;
+                        _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
+                        _lastWpfLine2Text = string.Empty;
+                    }
+
+                    var duration = CustomSettings.GetAnimationDuration(customSettings.AnimationSpeed);
+                    TriggerWpfNativeAnimation(customSettings.AnimationMode, duration);
+                }
+            }
+
+            // Nếu không trong quá trình animation chuyển câu: Cập nhật scroll offset thời gian thực
+            if (!_isWpfRollingAnimationRunning)
+            {
+                if (isTwoLines && _owner.LyricsWpfLine2Viewport.Visibility != Visibility.Visible)
+                {
+                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Visible;
+                }
+                else if (!isTwoLines && _owner.LyricsWpfLine2Viewport.Visibility != Visibility.Collapsed)
+                {
+                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
+                }
+
                 KaraokeLineScrollHelper.Update(
-                    _owner.LyricsWpfLine2Viewport,
-                    _owner.LyricsWpfLine2Text,
+                    _owner.LyricsWpfLine1Viewport,
+                    _owner.LyricsWpfLine1Text,
+                    presentation.ScrollProgress ?? double.NaN,
+                    align,
+                    line1Changed);
+
+                if (isTwoLines)
+                {
+                    KaraokeLineScrollHelper.Update(
+                        _owner.LyricsWpfLine2Viewport,
+                        _owner.LyricsWpfLine2Text,
+                        double.NaN,
+                        align,
+                        line2Changed);
+                }
+            }
+        }
+
+        private void ExecuteWpfRollTransition(string targetLine1, string? targetLine2, bool isTwoLines, HorizontalAlignment align, CustomSettings customSettings)
+        {
+            var duration = CustomSettings.GetAnimationDuration(customSettings.AnimationSpeed);
+            if (duration.TotalMilliseconds < 150) duration = TimeSpan.FromMilliseconds(560);
+
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+            // Chuẩn bị text cho tầng Incoming bên dưới
+            _owner.LyricsWpfIncoming1Text.Text = targetLine1;
+            _owner.LyricsWpfIncoming1Viewport.Visibility = Visibility.Visible;
+
+            KaraokeLineScrollHelper.Update(
+                _owner.LyricsWpfIncoming1Viewport,
+                _owner.LyricsWpfIncoming1Text,
+                double.NaN,
+                align,
+                true);
+
+            if (isTwoLines && !string.IsNullOrWhiteSpace(targetLine2))
+            {
+                _owner.LyricsWpfIncoming2Text.Text = targetLine2;
+                _owner.LyricsWpfIncoming2Viewport.Visibility = Visibility.Visible;
+
+                KaraokeLineScrollHelper.Update(
+                    _owner.LyricsWpfIncoming2Viewport,
+                    _owner.LyricsWpfIncoming2Text,
                     double.NaN,
                     align,
-                    line2Changed);
+                    true);
             }
+            else
+            {
+                _owner.LyricsWpfIncoming2Viewport.Visibility = Visibility.Collapsed;
+            }
+
+            // Đo chiều cao cuộn lên (Roll distance)
+            double row1Height = _owner.LyricsWpfLine1Viewport.ActualHeight > 0 
+                ? _owner.LyricsWpfLine1Viewport.ActualHeight 
+                : (_owner.LyricsWpfLine1Text.FontSize * 1.3);
+
+            double row2Height = isTwoLines && _owner.LyricsWpfLine2Viewport.ActualHeight > 0 
+                ? _owner.LyricsWpfLine2Viewport.ActualHeight 
+                : (_owner.LyricsWpfLine2Text.FontSize * 1.3);
+
+            double rollDistance = row1Height;
+            if (isTwoLines && !string.Equals(targetLine1, _lastWpfLine2Text, StringComparison.Ordinal))
+            {
+                // Khi đổi cả cặp (ví dụ Lời gốc + Dịch hoặc nhảy câu), cuộn toàn bộ cặp lên
+                rollDistance = row1Height + row2Height;
+            }
+
+            _isWpfRollingAnimationRunning = true;
+
+            // DoubleAnimation cuộn lên
+            var translateAnim = new DoubleAnimation(0, -rollDistance, duration)
+            {
+                EasingFunction = ease
+            };
+
+            // Hiệu ứng mờ dần dòng cũ và đậm dần dòng mới
+            var fadeOutAnim = new DoubleAnimation(1.0, 0.2, duration)
+            {
+                EasingFunction = ease
+            };
+            var fadeInAnim = new DoubleAnimation(0.2, 1.0, duration)
+            {
+                EasingFunction = ease
+            };
+
+            translateAnim.Completed += (s, e) =>
+            {
+                _owner.LyricsWpfTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+                _owner.LyricsWpfTranslate.Y = 0;
+
+                _owner.LyricsWpfLine1Text.Text = targetLine1;
+                _lastWpfLine1Text = targetLine1;
+
+                if (isTwoLines)
+                {
+                    _owner.LyricsWpfLine2Text.Text = targetLine2 ?? string.Empty;
+                    _lastWpfLine2Text = targetLine2;
+                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    _owner.LyricsWpfLine2Viewport.Visibility = Visibility.Collapsed;
+                    _lastWpfLine2Text = string.Empty;
+                }
+
+                _owner.LyricsWpfLine1Text.BeginAnimation(UIElement.OpacityProperty, null);
+                _owner.LyricsWpfLine1Text.Opacity = 1.0;
+
+                _owner.LyricsWpfLine2Text.BeginAnimation(UIElement.OpacityProperty, null);
+                _owner.LyricsWpfLine2Text.Opacity = 1.0;
+
+                _owner.LyricsWpfIncoming1Viewport.Visibility = Visibility.Collapsed;
+                _owner.LyricsWpfIncoming2Viewport.Visibility = Visibility.Collapsed;
+
+                _isWpfRollingAnimationRunning = false;
+
+                // Cập nhật lại lề và cuộn cho các TextBlock sau khi chuyển giao
+                KaraokeLineScrollHelper.Update(
+                    _owner.LyricsWpfLine1Viewport,
+                    _owner.LyricsWpfLine1Text,
+                    double.NaN,
+                    align,
+                    true);
+
+                if (isTwoLines)
+                {
+                    KaraokeLineScrollHelper.Update(
+                        _owner.LyricsWpfLine2Viewport,
+                        _owner.LyricsWpfLine2Text,
+                        double.NaN,
+                        align,
+                        true);
+                }
+            };
+
+            _owner.LyricsWpfLine1Text.BeginAnimation(UIElement.OpacityProperty, fadeOutAnim);
+            _owner.LyricsWpfIncoming1Text.BeginAnimation(UIElement.OpacityProperty, fadeInAnim);
+            if (isTwoLines)
+            {
+                _owner.LyricsWpfIncoming2Text.BeginAnimation(UIElement.OpacityProperty, fadeInAnim);
+            }
+
+            _owner.LyricsWpfTranslate.BeginAnimation(TranslateTransform.YProperty, translateAnim);
         }
 
         private void TriggerWpfNativeAnimation(LyricsAnimationMode mode, TimeSpan duration)
